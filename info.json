@@ -1,0 +1,10 @@
+{
+  "name": "parallel-piping",
+  "version": "1.0.0",
+  "title": "Parallel Piping",
+  "description": "Allows you to place pipes of different materials next to each other without them connecting. Designed as a less fancy alternative to advanced fluid handling, without the recipe complexity of flow control.",
+  "author": "protocol_1903",
+  "homepage": "https://discord.gg/K3fXMGVc4z",
+  "factorio_version": "2.0",
+  "dependencies": ["base"]
+}
