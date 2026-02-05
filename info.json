@@ -6,5 +6,8 @@
   "author": "protocol_1903",
   "homepage": "https://discord.gg/K3fXMGVc4z",
   "factorio_version": "2.0",
-  "dependencies": ["base"]
+  "dependencies": [
+    "base",
+    "(?) the-one-mod-with-underground-bits"
+  ]
 }
