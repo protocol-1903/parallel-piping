@@ -4,7 +4,8 @@
 
 # What?
 Parallel Piping allows pipes carrying different fluids to run in parallel, without connecting.
-Please report any bugs here or on [github](https://github.com/protocol-1903/parallel-piping)
+
+Initial placement script written by [_CodeGreen](https://mods.factorio.com/user/_CodeGreen)
 
 # Compatability
 Should be compatible with most mods that adds unique pipes, if something breaks, let me know.

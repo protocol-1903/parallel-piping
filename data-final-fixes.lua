@@ -1,4 +1,30 @@
-local base_pipe, variations, event_filter = {}, {}, {}
+-- local new_pipes = {}
+-- for name, pipe in pairs(data.raw.pipe) do
+--   local pipe_connections = pipe.fluid_box.pipe_connections
+--   pipe.fluid_box.pipe_connections = {}
+
+--   for i = 0, 15 do
+--     local new = table.deepcopy(pipe)
+--     new.type = "pipe"
+--     new.name = string.format("%s-pp-%02d", name, i)
+--     new.placeable_by = new.placeable_by or {item = name, count = 1}
+
+--     local connections = new.fluid_box.pipe_connections
+--     for j = 0, 3 do
+--       if bit32.btest(i, 2^j) then
+--         connections[#connections+1] = pipe_connections[j+1]
+--       end
+--     end
+
+--     new_pipes[#new_pipes+1] = new
+--   end
+
+--   pipe.collision_mask = {layers = {}}
+-- end
+
+-- data:extend(new_pipes)
+
+local base_pipe, variations, bitmasks, event_filter = {}, {}, {}, {}
 
 local blacklist = {}
 
@@ -27,54 +53,54 @@ ENDING:
 -- TODO link pipes and tanks
 
 -- collect all connection categories before we add new things to index
-local categories = {default = true}
-for _, prototypes in pairs {
-  "pump",
-  "storage-tank",
-  "assembling-machine",
-  "furnace",
-  "boiler",
-  "fluid-turret",
-  "mining-drill",
-  "offshore-pump",
-  "generator",
-  "fusion-generator",
-  "fusion-reactor",
-  "thruster",
-  "inserter",
-  "agricultural-tower",
-  "lab",
-  "radar",
-  "reactor",
-  "loader",
-  "valve",
-  "pipe",
-  "pipe-to-ground"
-} do for _, prototype in pairs(data.raw[prototypes] or {}) do
-  local fluid_boxes = {}
-  -- multiple fluid_boxes
-  for _, fluid_box in pairs(prototype.fluid_boxes or {}) do
-    fluid_boxes[#fluid_boxes + 1] = fluid_box
-  end
-  fluid_boxes[#fluid_boxes + 1] = prototype.fluid_box
-  fluid_boxes[#fluid_boxes + 1] = prototype.input_fluid_box
-  fluid_boxes[#fluid_boxes + 1] = prototype.output_fluid_box
-  fluid_boxes[#fluid_boxes + 1] = prototype.fuel_fluid_box
-  fluid_boxes[#fluid_boxes + 1] = prototype.oxidizer_fluid_box
-  fluid_boxes[#fluid_boxes + 1] = prototype.energy_source and prototype.energy_source.fluid_box or nil
-  for _, fluid_box in pairs(fluid_boxes) do
-    for _, pipe_connection in pairs(fluid_box.pipe_connections) do
-      for _, connection_category in pairs(type(pipe_connection.connection_category) == "table" and pipe_connection.connection_category or {pipe_connection.connection_category}) do
-        categories[connection_category] = true
-      end
-    end
-  end
-end end
+-- local categories = {default = true}
+-- for _, prototypes in pairs {
+--   "pump",
+--   "storage-tank",
+--   "assembling-machine",
+--   "furnace",
+--   "boiler",
+--   "fluid-turret",
+--   "mining-drill",
+--   "offshore-pump",
+--   "generator",
+--   "fusion-generator",
+--   "fusion-reactor",
+--   "thruster",
+--   "inserter",
+--   "agricultural-tower",
+--   "lab",
+--   "radar",
+--   "reactor",
+--   "loader",
+--   "valve",
+--   "pipe",
+--   "pipe-to-ground"
+-- } do for _, prototype in pairs(data.raw[prototypes] or {}) do
+--   local fluid_boxes = {}
+--   -- multiple fluid_boxes
+--   for _, fluid_box in pairs(prototype.fluid_boxes or {}) do
+--     fluid_boxes[#fluid_boxes + 1] = fluid_box
+--   end
+--   fluid_boxes[#fluid_boxes + 1] = prototype.fluid_box
+--   fluid_boxes[#fluid_boxes + 1] = prototype.input_fluid_box
+--   fluid_boxes[#fluid_boxes + 1] = prototype.output_fluid_box
+--   fluid_boxes[#fluid_boxes + 1] = prototype.fuel_fluid_box
+--   fluid_boxes[#fluid_boxes + 1] = prototype.oxidizer_fluid_box
+--   fluid_boxes[#fluid_boxes + 1] = prototype.energy_source and prototype.energy_source.fluid_box or nil
+--   for _, fluid_box in pairs(fluid_boxes) do
+--     for _, pipe_connection in pairs(fluid_box.pipe_connections) do
+--       for _, connection_category in pairs(type(pipe_connection.connection_category) == "table" and pipe_connection.connection_category or {pipe_connection.connection_category}) do
+--         categories[connection_category] = true
+--       end
+--     end
+--   end
+-- end end
 
-local connection_categories = {}
-for category in pairs(categories) do
-  connection_categories[#connection_categories+1] = category
-end
+-- local connection_categories = {}
+-- for category in pairs(categories) do
+--   connection_categories[#connection_categories+1] = category
+-- end
 
 for p, prototype in pairs(data.raw.pipe) do
   if prototype.ignore_by_parallel_piping or blacklist[p] or #prototype.fluid_box.pipe_connections ~= 4 then
@@ -88,18 +114,25 @@ for p, prototype in pairs(data.raw.pipe) do
     local pipe_connections = prototype.fluid_box.pipe_connections
     for _, connection in pairs(pipe_connections) do
       connection.flow_direction = "input-output"
-      prototype.fluid_box.pipe_connections[connection.direction / 4 + 1] = connection
+      prototype.fluid_box.pipe_connections[connection.direction/4+1] = connection
     end
   end
 end
 
+for _, prototype in pairs(data.raw["pipe-to-ground"]) do
+  prototype.fast_replaceable_group = nil
+end
+
+local new_entities = {}
+
 for p, prototype in pairs(data.raw.pipe) do
   if variations[p] then
     prototype.placeable_by = prototype.placeable_by or {item = p, count = 1}
+    prototype.fast_replaceable_group = p
     local pipe_connections = prototype.fluid_box.pipe_connections
     prototype.fluid_box.pipe_connections = {}
     -- create variations for in-world manipulation
-    for i = 0, 14 do
+    for i = 0, 15 do
       local pipe = util.table.deepcopy(prototype)
 			pipe.name = string.format("%s-pp-%02d", p, i)
 			pipe.localised_name = prototype.localised_name or {"entity-name." .. p}
@@ -109,14 +142,14 @@ for p, prototype in pairs(data.raw.pipe) do
       pipe.placeable_by = prototype.placeable_by or {item = p, count = 1}
       pipe.hidden = true
       pipe.hidden_in_factoriopedia = true
+      local connections = pipe.fluid_box.pipe_connections
       for j = 0, 3 do
-        if bit32.band(2^(j), i) ~= 0 then
-          pipe.fluid_box.pipe_connections[#pipe.fluid_box.pipe_connections+1] = pipe_connections[j + 1]
-        end
+        connections[#connections+1] = bit32.btest(i, 2^(j)) and pipe_connections[j+1] or nil
       end
-			data:extend{pipe}
+      new_entities[#new_entities+1] = pipe
       base_pipe[pipe.name] = p
       variations[p][i] = pipe.name
+      bitmasks[pipe.name] = i
     end
     -- create variations for blueprints
     for suffix, metadata in pairs{
@@ -127,6 +160,12 @@ for p, prototype in pairs(data.raw.pipe) do
           south = "straight_vertical",
           west = "straight_horizontal"
         },
+        bitmasks = {
+          north = 5,
+          east = 10,
+          south = 5,
+          west = 10
+        },
         pipe_connections = {1, 3}
       },
       ending = {
@@ -135,6 +174,12 @@ for p, prototype in pairs(data.raw.pipe) do
           east = "ending_left",
           south = "ending_up",
           west = "ending_right"
+        },
+        bitmasks = {
+          north = 4,
+          east = 8,
+          south = 1,
+          west = 2
         },
         pipe_connections = {3}
       },
@@ -145,6 +190,12 @@ for p, prototype in pairs(data.raw.pipe) do
           south = "t_up",
           west = "t_right"
         },
+        bitmasks = {
+          north = 14,
+          east = 13,
+          south = 11,
+          west = 7
+        },
         pipe_connections = {2, 3, 4}
       },
       corner = {
@@ -154,6 +205,12 @@ for p, prototype in pairs(data.raw.pipe) do
           south = "corner_up_left",
           west = "corner_up_right"
         },
+        bitmasks = {
+          north = 6,
+          east = 12,
+          south = 9,
+          west = 3
+        },
         pipe_connections = {2, 3}
       },
       cross = {
@@ -162,6 +219,12 @@ for p, prototype in pairs(data.raw.pipe) do
           east = "cross",
           south = "cross",
           west = "cross"
+        },
+        bitmasks = {
+          north = 15,
+          east = 15,
+          south = 15,
+          west = 15
         },
         pipe_connections = {1, 2, 3, 4}
       }
@@ -191,55 +254,58 @@ for p, prototype in pairs(data.raw.pipe) do
         tank.pictures[variation] = tank.pictures[variation] or {}
         tank.pictures[variation][direction] = prototype.pictures[index .. alt]
       end end
-			data:extend{tank}
+      new_entities[#new_entities+1] = tank
       base_pipe[tank.name] = p
       variations[p][suffix] = tank.name
+      bitmasks[tank.name] = metadata.bitmasks
     end
-    prototype.fluid_box.pipe_connections = pipe_connections
-    event_filter[#event_filter+1] = {filter = "name", name = p .. "-pp-tester"}
-    event_filter[#event_filter+1] = {filter = "ghost_name", name = p .. "-pp-tester"}
-    data.raw.item[p].place_result = p .. "-pp-tester"
-    base_pipe[p .. "-pp-tester"] = p
-    data:extend{
-      { -- util entity to test for connections (need apply graphics still)
-        name = p .. "-pp-tester",
-        type = "assembling-machine",
-        energy_usage = "1W",
-        crafting_speed = 1,
-        crafting_categories = {"crafting"},
-        energy_source = {type = "void"},
-        flags = {"not-in-made-in"},
-        collision_mask = {layers = {}},
-        collision_box = {{-0.5, -0.5}, {0.5, 0.5}},
-        fluid_boxes_off_when_no_fluid_recipe = false,
-        fluid_boxes = {
-          {
-            volume = 1,
-            production_type = "input",
-            pipe_connections = {prototype.fluid_box.pipe_connections[1]}
-          },
-          {
-            volume = 1,
-            production_type = "input",
-            pipe_connections = {prototype.fluid_box.pipe_connections[2]}
-          },
-          {
-            volume = 1,
-            production_type = "input",
-            pipe_connections = {prototype.fluid_box.pipe_connections[3]}
-          },
-          {
-            volume = 1,
-            production_type = "input",
-            pipe_connections = {prototype.fluid_box.pipe_connections[4]}
-          }
-        },
-        hidden = true,
-        hidden_in_factoriopedia = true
-      }
-    }
+    prototype.collision_mask = {layers = {}}
+    -- prototype.fluid_box.pipe_connections = pipe_connections
+    -- event_filter[#event_filter+1] = {filter = "name", name = p .. "-pp-tester"}
+    -- event_filter[#event_filter+1] = {filter = "ghost_name", name = p .. "-pp-tester"}
+    -- data.raw.item[p].place_result = p .. "-pp-tester"
+    -- base_pipe[p .. "-pp-tester"] = p
+    -- util entity to test for connections (need apply graphics still)
+    -- new_entities[#new_entities + 1] = {
+    --   name = p .. "-pp-tester",
+    --   type = "assembling-machine",
+    --   energy_usage = "1W",
+    --   crafting_speed = 1,
+    --   crafting_categories = {"crafting"},
+    --   energy_source = {type = "void"},
+    --   flags = {"not-in-made-in"},
+    --   collision_mask = {layers = {}},
+    --   collision_box = {{-0.5, -0.5}, {0.5, 0.5}},
+    --   fluid_boxes_off_when_no_fluid_recipe = false,
+    --   fluid_boxes = {
+    --     {
+    --       volume = 1,
+    --       production_type = "input",
+    --       pipe_connections = {prototype.fluid_box.pipe_connections[1]}
+    --     },
+    --     {
+    --       volume = 1,
+    --       production_type = "input",
+    --       pipe_connections = {prototype.fluid_box.pipe_connections[2]}
+    --     },
+    --     {
+    --       volume = 1,
+    --       production_type = "input",
+    --       pipe_connections = {prototype.fluid_box.pipe_connections[3]}
+    --     },
+    --     {
+    --       volume = 1,
+    --       production_type = "input",
+    --       pipe_connections = {prototype.fluid_box.pipe_connections[4]}
+    --     }
+    --   },
+    --   hidden = true,
+    --   hidden_in_factoriopedia = true
+    -- }
   end
 end
+
+data:extend(new_entities)
 
 data:extend{
   {
@@ -248,28 +314,29 @@ data:extend{
     data = {
       base_pipe = base_pipe,
       variations = variations,
+      bitmasks = bitmasks,
       event_filter = event_filter
     }
   },
-  {
-    type = "smoke-with-trigger",
-    name = "piping-build-record",
-    flags = {"placeable-off-grid"},
-    duration = 3600, -- one minute
-    movement_slow_down_factor = 0
-  },
+  -- {
+  --   type = "smoke-with-trigger",
+  --   name = "piping-build-record",
+  --   flags = {"placeable-off-grid"},
+  --   duration = 3600, -- one minute
+  --   movement_slow_down_factor = 0
+  -- },
   {
     type = "custom-input",
     name = "piping-configure",
     linked_game_control = "build",
     key_sequence = ""
   },
-  {
-    type = "custom-input",
-    name = "piping-build",
-    linked_game_control = "build",
-    key_sequence = ""
-  },
+  -- {
+  --   type = "custom-input",
+  --   name = "piping-build",
+  --   linked_game_control = "build",
+  --   key_sequence = ""
+  -- },
   {
     name = "piping-rotate",
     type = "custom-input",
