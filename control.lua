@@ -72,13 +72,12 @@ script.on_event(defines.events.on_built_entity, function(event)
   if not base then return end
 
   local blueprint = #stack.get_undo_item(1) ~= 1
-  local undo_index = blueprint and 1 or nil
-  if not blueprint then
-    -- simple remove only item in list (this thing that was just built)
-    stack.remove_undo_action(1, 1)
-  else -- multiple items (blueprint or otherwise) do complicated checks
+  if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
     for i, action in pairs(stack.get_undo_item(1)) do
-      if action.type == "built-entity" and action.target.name == entity.name and action.target.position.x == entity.position.x and action.target.position.y == entity.position.y then
+      if action.type == "built-entity" and
+        action.target.name == entity.name and
+        action.target.position.x == entity.position.x and
+        action.target.position.y == entity.position.y then
         stack.remove_undo_action(1, i)
         break
       end
@@ -104,10 +103,10 @@ script.on_event(defines.events.on_built_entity, function(event)
         for i = 1, stack.get_undo_item_count() do
           for _, action in pairs(stack.get_undo_item(i)) do
             if action.type == "built-entity" and
-            action.surface_index == surface.index and
-            action.target.name == prev.name and
-            action.target.position.x == prev.position.x and
-            action.target.position.y == prev.position.y then
+              action.surface_index == surface.index and
+              action.target.name == prev.name and
+              action.target.position.x == prev.position.x and
+              action.target.position.y == prev.position.y then
               index = i
               break
             end
@@ -149,7 +148,7 @@ script.on_event(defines.events.on_built_entity, function(event)
       -- fast_replace = true,
       -- spill = false,
       player = player.index,
-      undo_index = undo_index,
+      undo_index = 1,
       create_build_effect_smoke = false,
     }) --[[@as LuaEntity]]
     entity.destroy()
@@ -166,44 +165,27 @@ script.on_event(defines.events.on_built_entity, function(event)
     -- end
   else
     -- reinsert to cursor if not a ghost
-    if entity.name ~= "entity-ghost" then
-      player.cursor_stack.count = player.cursor_stack.count + 1 - remove
-    end
+    -- if entity.name ~= "entity-ghost" then
+    --   player.cursor_stack.count = player.cursor_stack.count + 1 - remove
+    -- end
     entity.destroy()
     -- player.mine_entity(entity, true)
     -- player.remove_item{name = name, count = 1}
   end
-  game.print(serpent.block(stack.get_undo_item(2)))
+  -- game.print(serpent.block(stack.get_undo_item(2)))
+  
+  if not blueprint then
+    -- simple remove only item in list (this thing that was just built)
+    stack.remove_undo_action(1, 1)
+  end
 
 
 end, {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}})
 
-script.on_event(defines.events.on_undo_applied, function(event)
-  local actions = event.actions
-  for i = #actions, 1, -1 do
-    -- local action = actions[i]
-    -- if action.type == "built-entity" then
-    --   if action.target.name ~= "pipe" then
-    --     local surface = game.get_surface(action.surface_index) --[[@as LuaSurface]]
-    --     surface.find_entity(action.target.name, action.target.position).destroy()
-    --   end
-    -- elseif action.type == "removed-entity" then
-    --   if action.target.name ~= "pipe" then
-    --     local surface = game.get_surface(action.surface_index) --[[@as LuaSurface]]
-    --     surface.find_entities_filtered{name = "entity-ghost", ghost_name = action.target.name, position = action.position}[1].revive()
-    --   end
-    -- end
-    -- game.print(serpent.block(action))
-  end
-end)
-
--- marked for deconstruction/script raised destroy
--- on_built_entity ?? i guess undoing the last event
--- on_undo_applied
-
 -- DONE: cursor ghost
 -- DONE: ghosts in general
--- DONE?: undo/redo
+-- DONE: undo/redo
+-- TODO: items being inserted/removed *why*
 -- TODO: blueprints
 -- TODO: mod compat checks
 -- TODO: on removal update adjacent connections
