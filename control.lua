@@ -11,6 +11,15 @@ script.on_init(function()
   storage.previous = {}
   ---@type table<uint, uint> player index -> bitmask
   storage.existing_connections = {}
+  ---@type table<uint, uint> player index -> health
+  storage.old_health = {}
+end)
+
+script.on_configuration_changed(function()
+  storage.build_position = storage.build_position or {}
+  storage.previous = storage.previous or {}
+  storage.existing_connections = storage.existing_connections or {}
+  storage.old_health = storage.old_health or {}
 end)
 
 local offset_to_bit = {
@@ -43,8 +52,11 @@ script.on_event(defines.events.on_pre_build, function(event)
   local position = event.position
   local entity = player.surface.find_entities_filtered{type = "pipe", position = position, limit = 1}[1]
   local ghost = player.surface.find_entities_filtered{ghost_type = "pipe", position = position, limit = 1}[1]
-  if not entity and not ghost then return end
-  storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
+  storage.old_health[event.player_index] = entity and entity.health or nil
+  if entity or ghost then
+    storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
+    entity.health = entity.max_health
+  end
 end)
 
 script.on_event(defines.events.on_built_entity, function(event)
@@ -55,8 +67,23 @@ script.on_event(defines.events.on_built_entity, function(event)
   local surface = entity.surface
   local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
   local base = base_pipe[name]
+  local stack = player.undo_redo_stack
 
   if not base then return end
+
+  local blueprint = #stack.get_undo_item(1) ~= 1
+  local undo_index = blueprint and 1 or nil
+  if not blueprint then
+    -- simple remove only item in list (this thing that was just built)
+    stack.remove_undo_action(1, 1)
+  else -- multiple items (blueprint or otherwise) do complicated checks
+    for i, action in pairs(stack.get_undo_item(1)) do
+      if action.type == "built-entity" and action.target.name == entity.name and action.target.position.x == entity.position.x and action.target.position.y == entity.position.y then
+        stack.remove_undo_action(1, i)
+        break
+      end
+    end
+  end
 
   local variation = storage.existing_connections[player.index] or 0
   storage.existing_connections[player.index] = nil
@@ -72,21 +99,39 @@ script.on_event(defines.events.on_built_entity, function(event)
       local prev_variation = get_connection_bit(prev.position, entity.position)
       local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
       if new_mask ~= bitmasks[prev_name] then
+        -- LOSSY UNDO STACK CHECK
+        local index
+        for i = 1, stack.get_undo_item_count() do
+          for _, action in pairs(stack.get_undo_item(i)) do
+            if action.type == "built-entity" and
+            action.surface_index == surface.index and
+            action.target.name == prev.name and
+            action.target.position.x == prev.position.x and
+            action.target.position.y == prev.position.y then
+              index = i
+              break
+            end
+          end
+          if index then break end
+        end
+        -- game.print(index)
         local health = prev.health
-        prev = surface.create_entity({
+        local new_prev = surface.create_entity({
           name = prev.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
           ghost_name = prev.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
           position = prev.position,
           quality = prev.quality,
           force = prev.force,
-          fast_replace = true,
-          spill = false,
-          -- player = player.index,
-          -- undo_index = 1,
+          -- fast_replace = true,
+          -- spill = false,
+          player = index and player.index or nil,
+          undo_index = index,
           create_build_effect_smoke = false,
         }) --[[@as LuaEntity]]
-        if health then prev.health = health end
-        if prev.name ~= "entity-ghost" then remove = 1 end
+        -- undo_index = 1
+        prev.destroy{player = index and player or nil, undo_index = index}
+        if health then new_prev.health = health end
+        if new_prev.name ~= "entity-ghost" then remove = 1 end
       end
     end
   end
@@ -94,22 +139,23 @@ script.on_event(defines.events.on_built_entity, function(event)
   -- local new_name = string.format("%s-pp-%02d", name, variation)
   local new_name = variations[base]["" .. variation]
   if surface.can_place_entity{name = new_name, position = entity.position, force = entity.force} then
-    local health = entity.health
-    entity = surface.create_entity({
+    local health = storage.old_health[player.index]
+    local new_entity = surface.create_entity({
       name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
       ghost_name = entity.name == "entity-ghost" and new_name or nil,
       position = entity.position,
       quality = entity.quality,
       force = entity.force,
-      fast_replace = true,
-      spill = false,
-      -- player = player.index,
-      -- undo_index = 1,
+      -- fast_replace = true,
+      -- spill = false,
+      player = player.index,
+      undo_index = undo_index,
       create_build_effect_smoke = false,
     }) --[[@as LuaEntity]]
-    if health then entity.health = health end
-    storage.previous[player.index].entity = entity
-    if entity.name ~= "entity-ghost" then remove = remove + 1 end
+    entity.destroy()
+    if health then new_entity.health = health end
+    storage.previous[player.index].entity = new_entity
+    if new_entity.name ~= "entity-ghost" then remove = remove + 1 end
 
 
     local cursor = player.cursor_stack
@@ -121,12 +167,13 @@ script.on_event(defines.events.on_built_entity, function(event)
   else
     -- reinsert to cursor if not a ghost
     if entity.name ~= "entity-ghost" then
-      player.cursor_stack.count = player.cursor_stack.count + 1
+      player.cursor_stack.count = player.cursor_stack.count + 1 - remove
     end
     entity.destroy()
     -- player.mine_entity(entity, true)
     -- player.remove_item{name = name, count = 1}
   end
+  game.print(serpent.block(stack.get_undo_item(2)))
 
 
 end, {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}})
@@ -150,9 +197,14 @@ script.on_event(defines.events.on_undo_applied, function(event)
   end
 end)
 
+-- marked for deconstruction/script raised destroy
+-- on_built_entity ?? i guess undoing the last event
+-- on_undo_applied
+
 -- DONE: cursor ghost
 -- DONE: ghosts in general
--- TODO: undo/redo
+-- DONE?: undo/redo
 -- TODO: blueprints
 -- TODO: mod compat checks
 -- TODO: on removal update adjacent connections
+-- DONE: health issues
