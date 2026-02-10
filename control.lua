@@ -52,10 +52,10 @@ script.on_event(defines.events.on_pre_build, function(event)
   local position = event.position
   local entity = player.surface.find_entities_filtered{type = "pipe", position = position, limit = 1}[1]
   local ghost = player.surface.find_entities_filtered{ghost_type = "pipe", position = position, limit = 1}[1]
-  if entity and event.build_mode == defines.build_mode.normal or ghost and event.build_mode ~= defines.build_mode.normal then
+  if entity or ghost then
     storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
-    storage.old_health[event.player_index] = entity and entity.health or nil
-    if entity then
+    if entity and event.build_mode == defines.build_mode.normal then
+      storage.old_health[event.player_index] = entity and entity.health or nil
       entity.health = entity.max_health
     end
   end
