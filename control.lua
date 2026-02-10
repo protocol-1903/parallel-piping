@@ -52,10 +52,12 @@ script.on_event(defines.events.on_pre_build, function(event)
   local position = event.position
   local entity = player.surface.find_entities_filtered{type = "pipe", position = position, limit = 1}[1]
   local ghost = player.surface.find_entities_filtered{ghost_type = "pipe", position = position, limit = 1}[1]
-  storage.old_health[event.player_index] = entity and entity.health or nil
-  if entity or ghost then
+  if entity and event.build_mode == defines.build_mode.normal or ghost and event.build_mode ~= defines.build_mode.normal then
     storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
-    entity.health = entity.max_health
+    storage.old_health[event.player_index] = entity and entity.health or nil
+    if entity then
+      entity.health = entity.max_health
+    end
   end
 end)
 
@@ -68,6 +70,7 @@ script.on_event(defines.events.on_built_entity, function(event)
   local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
   local base = base_pipe[name]
   local stack = player.undo_redo_stack
+
 
   if not base then return end
 
@@ -87,7 +90,7 @@ script.on_event(defines.events.on_built_entity, function(event)
   local variation = storage.existing_connections[player.index] or 0
   storage.existing_connections[player.index] = nil
 
-  local remove = 0
+  -- local remove = 0
 
   if previous then
     variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
@@ -130,7 +133,7 @@ script.on_event(defines.events.on_built_entity, function(event)
         -- undo_index = 1
         prev.destroy{player = index and player or nil, undo_index = index}
         if health then new_prev.health = health end
-        if new_prev.name ~= "entity-ghost" then remove = 1 end
+        -- if new_prev.name ~= "entity-ghost" then remove = 1 end
       end
     end
   end
@@ -139,6 +142,7 @@ script.on_event(defines.events.on_built_entity, function(event)
   local new_name = variations[base]["" .. variation]
   if surface.can_place_entity{name = new_name, position = entity.position, force = entity.force} then
     local health = storage.old_health[player.index]
+    storage.old_health[player.index] = nil
     local new_entity = surface.create_entity({
       name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
       ghost_name = entity.name == "entity-ghost" and new_name or nil,
@@ -154,10 +158,10 @@ script.on_event(defines.events.on_built_entity, function(event)
     entity.destroy()
     if health then new_entity.health = health end
     storage.previous[player.index].entity = new_entity
-    if new_entity.name ~= "entity-ghost" then remove = remove + 1 end
+    -- if new_entity.name ~= "entity-ghost" then remove = remove + 1 end
 
 
-    local cursor = player.cursor_stack
+    -- local cursor = player.cursor_stack
     -- if entity.name ~= "entity-ghost" and cursor and cursor.valid_for_read then--and (cursor.health < 1) == (health < entity.max_health) then
     --   cursor.count = cursor.count - 1
     -- else
