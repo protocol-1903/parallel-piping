@@ -169,9 +169,9 @@ script.on_event(defines.events.on_built_entity, function(event)
     -- end
   else
     -- reinsert to cursor if not a ghost
-    -- if entity.name ~= "entity-ghost" then
-    --   player.cursor_stack.count = player.cursor_stack.count + 1 - remove
-    -- end
+    if entity.name ~= "entity-ghost" and player.cursor_stack and player.cursor_stack.valid_for_read then
+      player.cursor_stack.count = player.cursor_stack.count + 1
+    end
     entity.destroy()
     -- player.mine_entity(entity, true)
     -- player.remove_item{name = name, count = 1}
@@ -189,7 +189,7 @@ end, {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}})
 -- DONE: cursor ghost
 -- DONE: ghosts in general
 -- DONE: undo/redo
--- TODO: items being inserted/removed *why*
+-- DONE: items being inserted/removed *why*
 -- TODO: blueprints
 -- TODO: mod compat checks
 -- TODO: on removal update adjacent connections
