@@ -101,7 +101,7 @@ end
 script.on_init(function()
   ---@type table<uint, uint> player index -> tick
   storage.build_ticks = {}
-  ---@type table<uint, {entity: LuaEntity, position: MapPosition}> player index
+  ---@type table<uint, LuaEntity> player index -> entity
   storage.previous = {}
   ---@type table<uint, uint> player index -> bitmask
   storage.existing_connections = {}
@@ -182,43 +182,40 @@ local function on_built(event)
   local variation = storage.existing_connections[player.index] or 0
   storage.existing_connections[player.index] = nil
 
-  if previous then
+  if previous and previous.valid then
     variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
-    local prev = previous.entity
-    if prev.valid then
-      local prev_name = prev.name == "entity-ghost" and prev.ghost_name or prev.name
-      local prev_variation = get_connection_bit(prev.position, entity.position)
-      local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
-      if new_mask ~= bitmasks[prev_name] then
-        -- LOSSY UNDO STACK CHECK
-        local index
-        for i = 1, stack.get_undo_item_count() do
-          for _, action in pairs(stack.get_undo_item(i)) do
-            if action.type == "built-entity" and
-              action.surface_index == surface.index and
-              action.target.name == prev.name and
-              action.target.position.x == prev.position.x and
-              action.target.position.y == prev.position.y then
-              index = i
-              break
-            end
+    local prev_name = previous.name == "entity-ghost" and previous.ghost_name or previous.name
+    local prev_variation = get_connection_bit(previous.position, entity.position)
+    local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
+    if new_mask ~= bitmasks[prev_name] then
+      -- LOSSY UNDO STACK CHECK
+      local index
+      for i = 1, stack.get_undo_item_count() do
+        for _, action in pairs(stack.get_undo_item(i)) do
+          if action.type == "built-entity" and
+            action.surface_index == surface.index and
+            action.target.name == previous.name and
+            action.target.position.x == previous.position.x and
+            action.target.position.y == previous.position.y then
+            index = i
+            break
           end
-          if index then break end
         end
-        local health = prev.health
-        local new_prev = surface.create_entity({
-          name = prev.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
-          ghost_name = prev.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
-          position = prev.position,
-          quality = prev.quality,
-          force = prev.force,
-          player = index and player.index or nil,
-          undo_index = index,
-          create_build_effect_smoke = false,
-        }) --[[@as LuaEntity]]
-        prev.destroy{player = index and player or nil, undo_index = index}
-        if health then new_prev.health = health end
+        if index then break end
       end
+      local health = previous.health
+      local new_prev = surface.create_entity({
+        name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
+        ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
+        position = previous.position,
+        quality = previous.quality,
+        force = previous.force,
+        player = index and player.index or nil,
+        undo_index = index,
+        create_build_effect_smoke = false,
+      }) --[[@as LuaEntity]]
+      previous.destroy{player = index and player or nil, undo_index = index}
+      if health then new_prev.health = health end
     end
   end
 
@@ -238,7 +235,7 @@ local function on_built(event)
     }) --[[@as LuaEntity]]
     entity.destroy()
     if health then new_entity.health = health end
-    storage.previous[player.index].entity = new_entity
+    storage.previous[player.index] = new_entity
   else
     if player.cursor_stack and player.cursor_stack.valid_for_read then
       player.cursor_stack.count = player.cursor_stack.count + 1
