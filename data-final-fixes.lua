@@ -231,7 +231,7 @@ for p, prototype in pairs(data.raw.pipe) do
       variations[p][suffix] = tank.name
       bitmasks[tank.name] = suffix
     end
-    prototype.collision_mask = {layers = {}}
+    prototype.collision_mask = {layers = {out_of_map = true}}
     -- prototype.fluid_box.pipe_connections = pipe_connections
     -- data.raw.item[p].place_result = p .. "-pp-tester"
     -- base_pipe[p .. "-pp-tester"] = p

@@ -98,52 +98,9 @@ local function get_or_update_connectables(name)
   end
 end
 
-local function add_connection(entity, bitmask, player)
-  if not entity.valid then return end
-  local prev_name = prev.name == "entity-ghost" and prev.ghost_name or prev.name
-  local prev_variation = get_connection_bit(prev.position, entity.position)
-  local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
-  if new_mask ~= bitmasks[prev_name] then
-    -- LOSSY UNDO STACK CHECK
-    local index
-    for i = 1, stack.get_undo_item_count() do
-      for _, action in pairs(stack.get_undo_item(i)) do
-        if action.type == "built-entity" and
-          action.surface_index == surface.index and
-          action.target.name == prev.name and
-          action.target.position.x == prev.position.x and
-          action.target.position.y == prev.position.y then
-          index = i
-          break
-        end
-      end
-      if index then break end
-    end
-    -- game.print(index)
-    local health = prev.health
-    local new_prev = surface.create_entity({
-      name = prev.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
-      ghost_name = prev.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
-      position = prev.position,
-      quality = prev.quality,
-      force = prev.force,
-      player = index and player.index or nil,
-      undo_index = index,
-      create_build_effect_smoke = false,
-    }) --[[@as LuaEntity]]
-    prev.destroy{player = index and player or nil, undo_index = index}
-    if health then new_prev.health = health end
-  end
-end
-
-local function remove_connection(entity, bitmask, player)
-  if not entity.valid then return end
-
-end
-
 script.on_init(function()
-  ---@type table<uint, MapPosition> player index
-  storage.build_position = {}
+  ---@type table<uint, uint> player index -> tick
+  storage.build_ticks = {}
   ---@type table<uint, {entity: LuaEntity, position: MapPosition}> player index
   storage.previous = {}
   ---@type table<uint, uint> player index -> bitmask
@@ -153,7 +110,7 @@ script.on_init(function()
 end)
 
 script.on_configuration_changed(function()
-  storage.build_position = storage.build_position or {}
+  storage.build_ticks = storage.build_ticks or {}
   storage.previous = storage.previous or {}
   storage.existing_connections = storage.existing_connections or {}
   storage.old_health = storage.old_health or {}
@@ -175,14 +132,14 @@ end
 
 ---@param event EventData.on_pre_build
 script.on_event(defines.events.on_pre_build, function(event)
-  local player = game.get_player(event.player_index) --[[@as LuaPlayer]]
+  storage.build_ticks[event.player_index] = event.tick
+  local player = game.get_player(event.player_index)
   local cursor = player.cursor_stack
   if not cursor or not cursor.valid_for_read then return end
   local place_result = cursor.prototype.place_result
   if not place_result or place_result.type ~= "pipe" then return end
-
+  -- populate if nonexistant
   get_or_update_connectables(place_result.name)
-
   local position = event.position
   local entity = player.surface.find_entities_filtered{type = "pipe", position = position, limit = 1, name = connectables[place_result.name]}[1]
   local ghost = player.surface.find_entities_filtered{ghost_type = "pipe", position = position, limit = 1, ghost_name = connectables[place_result.name]}[1]
@@ -195,9 +152,9 @@ script.on_event(defines.events.on_pre_build, function(event)
   end
 end)
 
----@param event EventData.on_built_entity|EventData.script_raised_built
+--- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.on_space_platform_built_entity|EventData.script_raised_built|EventData.script_raised_revive|EventData.on_cancelled_deconstruction
 local function on_built(event)
-  local player = game.get_player(event.player_index) --[[@as LuaPlayer]]
+  local player = event.player_index and game.get_player(event.player_index)
   local entity = event.entity
   local previous = storage.previous[player.index]
   storage.previous[player.index] = {entity = entity, position = entity.position}
@@ -205,7 +162,7 @@ local function on_built(event)
   local base = base_pipe[name]
 
   -- only handle normal placement, for now. ignore undo/redo
-  if name ~= base then return end
+  if not base then return end
 
   local surface = entity.surface
   local stack = player.undo_redo_stack
@@ -299,7 +256,10 @@ local function on_built(event)
 end
 
 script.on_event(defines.events.on_built_entity, on_built, event_filter)
--- script.on_event(defines.events.script_raised_built, on_built, event_filter)
+script.on_event(defines.events.on_robot_built_entity, on_built, event_filter)
+script.on_event(defines.events.on_space_platform_built_entity, on_built, event_filter)
+script.on_event(defines.events.script_raised_built, on_built, event_filter)
+script.on_event(defines.events.script_raised_revive, on_built, event_filter)
 
 --- @param event EventData.on_player_mined_entity|EventData.on_robot_mined_entity|EventData.on_space_platform_mined_entity|EventData.script_raised_destroy|EventData.on_entity_died
 local function on_destroyed(event)
@@ -307,7 +267,10 @@ local function on_destroyed(event)
   local entity = event.entity
   local player = event.player_index and game.get_player(event.player_index)
   local base = base_pipe[entity.name == "entity-ghost" and entity.ghost_name or entity.name]
-  if storage.existing_connections[player.index] == bitmasks[entity.name == "entity-ghost" and entity.ghost_name or entity.name] or not base then return end
+  if not base or storage.build_ticks[event.player_index] == event.tick then
+    storage.build_ticks[event.player_index] = nil
+    return
+  end
   for bit, offset in pairs{
     [4] = {0, -1},
     [8] = {1, 0},
@@ -382,9 +345,13 @@ script.on_event(defines.events.on_entity_died, on_destroyed, event_filter)
 
 -- script.on_event(defines.events.on_undo_applied, function (event)
 --   for _, action in pairs(event.actions) do
---     if action.type == "built-entity" then
+--     if action.type == "built-entity" and base_pipe[action.target.name] then
 --       -- undoing build, the entity is being tagged for deconstruction
---     elseif action.type == "removed-entity" then
+--       local tags = action.tags or {}
+--       tags.pipemask = bitmasks[action.target.name]
+--       action.tags = tags
+--       action.target.name = 
+--     elseif action.type == "removed-entity" and base_pipe[action.target.name] then
 --       -- redoing build, the entity is being ghost placed
 --     end
 --   end
