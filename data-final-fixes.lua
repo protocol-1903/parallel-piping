@@ -24,7 +24,7 @@
 
 -- data:extend(new_pipes)
 
-local base_pipe, variations, bitmasks, event_filter = {}, {}, {}, {}
+local base_pipe, variations, bitmasks = {}, {}, {}
 
 local blacklist = {}
 
@@ -109,7 +109,6 @@ for p, prototype in pairs(data.raw.pipe) do
   else
     base_pipe[p] = p
     variations[p] = {}
-    variations[p] = {}
     -- sort pipe connections to north, south, east, west
     local pipe_connections = prototype.fluid_box.pipe_connections
     for _, connection in pairs(pipe_connections) do
@@ -129,6 +128,7 @@ for p, prototype in pairs(data.raw.pipe) do
   if variations[p] then
     prototype.placeable_by = prototype.placeable_by or {item = p, count = 1}
     prototype.fast_replaceable_group = p
+    -- prototype.collision_mask = prototype.collision_mask or {layers = {}}
     local pipe_connections = prototype.fluid_box.pipe_connections
     prototype.fluid_box.pipe_connections = {}
     -- create variations for in-world manipulation
@@ -137,6 +137,7 @@ for p, prototype in pairs(data.raw.pipe) do
 			pipe.name = string.format("%s-pp-%02d", p, i)
 			pipe.localised_name = prototype.localised_name or {"entity-name." .. p}
 			pipe.localised_description = prototype.localised_description or {"entity-description." .. p}
+      -- pipe.collision_mask.layers["parallel-piping-connectable"] = true
 			pipe.build_sound = nil
       pipe.created_smoke = nil
       pipe.placeable_by = prototype.placeable_by or {item = p, count = 1}
@@ -160,12 +161,6 @@ for p, prototype in pairs(data.raw.pipe) do
           south = "straight_vertical",
           west = "straight_horizontal"
         },
-        bitmasks = {
-          north = 5,
-          east = 10,
-          south = 5,
-          west = 10
-        },
         pipe_connections = {1, 3}
       },
       ending = {
@@ -174,12 +169,6 @@ for p, prototype in pairs(data.raw.pipe) do
           east = "ending_left",
           south = "ending_up",
           west = "ending_right"
-        },
-        bitmasks = {
-          north = 4,
-          east = 8,
-          south = 1,
-          west = 2
         },
         pipe_connections = {3}
       },
@@ -190,12 +179,6 @@ for p, prototype in pairs(data.raw.pipe) do
           south = "t_up",
           west = "t_right"
         },
-        bitmasks = {
-          north = 14,
-          east = 13,
-          south = 11,
-          west = 7
-        },
         pipe_connections = {2, 3, 4}
       },
       corner = {
@@ -204,12 +187,6 @@ for p, prototype in pairs(data.raw.pipe) do
           east = "corner_down_left",
           south = "corner_up_left",
           west = "corner_up_right"
-        },
-        bitmasks = {
-          north = 6,
-          east = 12,
-          south = 9,
-          west = 3
         },
         pipe_connections = {2, 3}
       },
@@ -220,12 +197,6 @@ for p, prototype in pairs(data.raw.pipe) do
           south = "cross",
           west = "cross"
         },
-        bitmasks = {
-          north = 15,
-          east = 15,
-          south = 15,
-          west = 15
-        },
         pipe_connections = {1, 2, 3, 4}
       }
     } do
@@ -235,6 +206,7 @@ for p, prototype in pairs(data.raw.pipe) do
 			tank.name = p .. "-pp-" .. suffix
 			tank.localised_name = prototype.localised_name or {"entity-name." .. p}
 			tank.localised_description = prototype.localised_description or {"entity-description." .. p}
+      -- tank.collision_mask = {layers = {}}
 			tank.build_sound = nil
       tank.created_smoke = nil
       tank.window_bounding_box = {{0,0},{0,0}}
@@ -257,12 +229,10 @@ for p, prototype in pairs(data.raw.pipe) do
       new_entities[#new_entities+1] = tank
       base_pipe[tank.name] = p
       variations[p][suffix] = tank.name
-      bitmasks[tank.name] = metadata.bitmasks
+      bitmasks[tank.name] = suffix
     end
     prototype.collision_mask = {layers = {}}
     -- prototype.fluid_box.pipe_connections = pipe_connections
-    -- event_filter[#event_filter+1] = {filter = "name", name = p .. "-pp-tester"}
-    -- event_filter[#event_filter+1] = {filter = "ghost_name", name = p .. "-pp-tester"}
     -- data.raw.item[p].place_result = p .. "-pp-tester"
     -- base_pipe[p .. "-pp-tester"] = p
     -- util entity to test for connections (need apply graphics still)
@@ -314,10 +284,13 @@ data:extend{
     data = {
       base_pipe = base_pipe,
       variations = variations,
-      bitmasks = bitmasks,
-      event_filter = event_filter
+      bitmasks = bitmasks
     }
   },
+  -- { -- collision mask for pipe type entities
+  --   name = "parallel-piping-connectable",
+  --   type = "collision-layer"
+  -- },
   -- {
   --   type = "smoke-with-trigger",
   --   name = "piping-build-record",
