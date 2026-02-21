@@ -101,7 +101,7 @@ end
 script.on_init(function()
   ---@type table<uint, uint> player index -> tick
   storage.build_ticks = {}
-  ---@type table<uint, LuaEntity> player index -> entity
+  ---@type table<uint, {entity:LuaEntity, position:MapPosition}> player index -> entity, position
   storage.previous = {}
   ---@type table<uint, uint> player index -> bitmask
   storage.existing_connections = {}
@@ -130,13 +130,127 @@ local function get_connection_bit(a, b)
   return offset_to_bit[string.pack(">i3i3", b.x - a.x, b.y - a.y)] or 0
 end
 
+--- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.on_space_platform_built_entity|EventData.script_raised_built|EventData.script_raised_revive|EventData.on_cancelled_deconstruction
+local function on_built(event)
+  local player = event.player_index and game.get_player(event.player_index)
+  local entity = event.entity
+  local previous = player and storage.previous[player.index]
+  if player then
+    storage.previous[player.index] = {entity = entity, position = entity.position}
+  end
+  local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
+  local base = base_pipe[name]
+
+  -- only handle normal placement, for now. ignore undo/redo
+  if not base then return end
+
+  local surface = entity.surface
+  local stack = player and player.undo_redo_stack
+  local blueprint = stack and #stack.get_undo_item(1) ~= 1
+  if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
+    for i, action in pairs(stack.get_undo_item(1)) do
+      if action.type == "built-entity" and
+      action.target.name == entity.name and
+      action.target.position.x == entity.position.x and
+      action.target.position.y == entity.position.y then
+        stack.remove_undo_action(1, i)
+        break
+      end
+    end
+  end
+
+  local variation = player and storage.existing_connections[player.index] or 0
+  if player then
+    storage.existing_connections[player.index] = nil
+  end
+
+  if previous then
+    variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
+    previous = previous.entity
+    if previous.valid then
+      local prev_name = previous.name == "entity-ghost" and previous.ghost_name or previous.name
+      local prev_variation = get_connection_bit(previous.position, entity.position)
+      local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
+      if new_mask ~= bitmasks[prev_name] then
+        -- LOSSY UNDO STACK CHECK
+        local build_index
+        for i = 1, stack.get_undo_item_count() do
+          for _, action in pairs(stack.get_undo_item(i)) do
+            if action.type == "built-entity" and
+              action.surface_index == surface.index and
+              action.target.name == previous.name and
+              action.target.position.x == previous.position.x and
+              action.target.position.y == previous.position.y then
+              build_index = i
+            end
+          end
+        end
+        local health = previous.health
+        local new_prev = surface.create_entity({
+          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
+          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
+          position = previous.position,
+          quality = previous.quality,
+          force = previous.force,
+          player = build_index and player.index or nil,
+          undo_index = build_index,
+          create_build_effect_smoke = false,
+        }) --[[@as LuaEntity]]
+        previous.destroy{player = build_index and player.index or nil, undo_index = build_index}
+        if health then new_prev.health = health end
+      end
+    end
+  end
+
+  local new_name = variations[base]["" .. variation]
+  if surface.can_place_entity{name = new_name, position = entity.position, force = entity.force} then
+    local health = player and storage.old_health[player.index] or entity.health
+    if player then
+      storage.old_health[player.index] = nil
+    end
+    local new_entity = surface.create_entity({
+      name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
+      ghost_name = entity.name == "entity-ghost" and new_name or nil,
+      position = entity.position,
+      quality = entity.quality,
+      force = entity.force,
+      player = event.player_index,
+      undo_index = player and 1 or nil,
+      create_build_effect_smoke = false,
+    }) --[[@as LuaEntity]]
+    entity.destroy()
+    if health then new_entity.health = health end
+    if player then
+      storage.previous[player.index].entity = new_entity
+    end
+  elseif not bitmasks[name] then
+    if player and player.cursor_stack and player.cursor_stack.valid_for_read then
+      player.cursor_stack.count = player.cursor_stack.count + 1
+    elseif player and event.consumed_items and player.cursor_stack and player.is_cursor_empty() then
+      -- just placed last item, put it back
+      player.cursor_stack.transfer_stack(event.consumed_items[1])
+    end
+    entity.destroy()
+  end
+
+  -- simple remove only item in list (this thing that was just built)
+  if stack and not blueprint then
+    stack.remove_undo_action(1, 1)
+  end
+end
+
+script.on_event(defines.events.on_built_entity, on_built, event_filter)
+script.on_event(defines.events.on_robot_built_entity, on_built, event_filter)
+script.on_event(defines.events.on_space_platform_built_entity, on_built, event_filter)
+script.on_event(defines.events.script_raised_built, on_built, event_filter)
+script.on_event(defines.events.script_raised_revive, on_built, event_filter)
+
 ---@param event EventData.on_pre_build
 script.on_event(defines.events.on_pre_build, function(event)
   storage.build_ticks[event.player_index] = event.tick
   local player = game.get_player(event.player_index)
-  local cursor = player.cursor_stack
-  if not cursor or not cursor.valid_for_read then return end
-  local place_result = cursor.prototype.place_result
+  local place_result = player.cursor_ghost and player.cursor_ghost.name.place_result or
+    player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
   if not place_result or place_result.type ~= "pipe" then return end
   -- populate if nonexistant
   get_or_update_connectables(place_result.name)
@@ -150,113 +264,22 @@ script.on_event(defines.events.on_pre_build, function(event)
       entity.health = entity.max_health
     end
   end
-end)
-
---- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.on_space_platform_built_entity|EventData.script_raised_built|EventData.script_raised_revive|EventData.on_cancelled_deconstruction
-local function on_built(event)
-  local player = event.player_index and game.get_player(event.player_index)
-  local entity = event.entity
-  local previous = storage.previous[player.index]
-  storage.previous[player.index] = {entity = entity, position = entity.position}
-  local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
-  local base = base_pipe[name]
-
-  -- only handle normal placement, for now. ignore undo/redo
-  if not base then return end
-
-  local surface = entity.surface
-  local stack = player.undo_redo_stack
-  local blueprint = #stack.get_undo_item(1) ~= 1
-  if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
-    for i, action in pairs(stack.get_undo_item(1)) do
-      if action.type == "built-entity" and
-        action.target.name == entity.name and
-        action.target.position.x == entity.position.x and
-        action.target.position.y == entity.position.y then
-        stack.remove_undo_action(1, i)
-        break
-      end
-    end
-  end
-
-  local variation = storage.existing_connections[player.index] or 0
-  storage.existing_connections[player.index] = nil
-
-  if previous and previous.valid then
-    variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
-    local prev_name = previous.name == "entity-ghost" and previous.ghost_name or previous.name
-    local prev_variation = get_connection_bit(previous.position, entity.position)
-    local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
-    if new_mask ~= bitmasks[prev_name] then
-      -- LOSSY UNDO STACK CHECK
-      local index
-      for i = 1, stack.get_undo_item_count() do
-        for _, action in pairs(stack.get_undo_item(i)) do
-          if action.type == "built-entity" and
-            action.surface_index == surface.index and
-            action.target.name == previous.name and
-            action.target.position.x == previous.position.x and
-            action.target.position.y == previous.position.y then
-            index = i
-            break
-          end
-        end
-        if index then break end
-      end
-      local health = previous.health
-      local new_prev = surface.create_entity({
-        name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
-        ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
-        position = previous.position,
-        quality = previous.quality,
-        force = previous.force,
-        player = index and player.index or nil,
-        undo_index = index,
-        create_build_effect_smoke = false,
-      }) --[[@as LuaEntity]]
-      previous.destroy{player = index and player or nil, undo_index = index}
-      if health then new_prev.health = health end
-    end
-  end
-
-  local new_name = variations[base]["" .. variation]
-  if surface.can_place_entity{name = new_name, position = entity.position, force = entity.force} then
-    local health = storage.old_health[player.index] or entity.health
-    storage.old_health[player.index] = nil
-    local new_entity = surface.create_entity({
-      name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
-      ghost_name = entity.name == "entity-ghost" and new_name or nil,
+  -- mimic normal build event
+  if entity and (event.build_mode ~= defines.build_mode.normal or player.controller_type == defines.controllers.remote) then
+    storage.old_health[event.player_index] = entity and entity.health or nil
+    entity.health = entity.max_health
+    local event_data = event
+    event.entity = entity.surface.create_entity({
+      name = base_pipe[entity.name],
       position = entity.position,
       quality = entity.quality,
       force = entity.force,
-      player = player.index,
-      undo_index = 1,
-      create_build_effect_smoke = false,
-    }) --[[@as LuaEntity]]
-    entity.destroy()
-    if health then new_entity.health = health end
-    storage.previous[player.index] = new_entity
-  else
-    if player.cursor_stack and player.cursor_stack.valid_for_read then
-      player.cursor_stack.count = player.cursor_stack.count + 1
-    elseif event.consumed_items and player.cursor_stack and player.is_cursor_empty() then
-      -- just placed last item, put it back
-      player.cursor_stack.transfer_stack(event.consumed_items[1])
-    end
-    entity.destroy()
+      create_build_effect_smoke = false
+    })
+    entity.destroy();
+    on_built(event_data)
   end
-
-  -- simple remove only item in list (this thing that was just built)
-  if not blueprint then
-    stack.remove_undo_action(1, 1)
-  end
-end
-
-script.on_event(defines.events.on_built_entity, on_built, event_filter)
-script.on_event(defines.events.on_robot_built_entity, on_built, event_filter)
-script.on_event(defines.events.on_space_platform_built_entity, on_built, event_filter)
-script.on_event(defines.events.script_raised_built, on_built, event_filter)
-script.on_event(defines.events.script_raised_revive, on_built, event_filter)
+end)
 
 --- @param event EventData.on_player_mined_entity|EventData.on_robot_mined_entity|EventData.on_space_platform_mined_entity|EventData.script_raised_destroy|EventData.on_entity_died
 local function on_destroyed(event)
@@ -264,6 +287,8 @@ local function on_destroyed(event)
   local entity = event.entity
   local player = event.player_index and game.get_player(event.player_index)
   local base = base_pipe[entity.name == "entity-ghost" and entity.ghost_name or entity.name]
+  local surface = entity.surface
+  local force = entity.force
   if not base or storage.build_ticks[event.player_index] == event.tick then
     storage.build_ticks[event.player_index] = nil
     return
@@ -276,58 +301,60 @@ local function on_destroyed(event)
   } do
     -- populate if nonexistant
     get_or_update_connectables(base)
-    local neighbour = entity.surface.find_entities_filtered{
+    local neighbour = surface.find_entities_filtered{
       position = {
         entity.position.x + offset[1],
         entity.position.y + offset[2]
       },
+      force = force,
       type = "pipe",
       name = connectables[base],
       limit = 1,
-    }[1] or entity.surface.find_entities_filtered{
+    }[1] or surface.find_entities_filtered{
       position = {
         entity.position.x + offset[1],
         entity.position.y + offset[2]
       },
+      force = force,
       ghost_type = "pipe",
       ghost_name = connectables[base],
       limit = 1,
     }[1]
-    if neighbour then
+    if neighbour and not neighbour.to_be_deconstructed() then
       local name = neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name
       local old_mask = bitmasks[name]
       local new_mask = old_mask - bit32.band(old_mask, bit)
       if old_mask ~= new_mask then
         -- LOSSY UNDO STACK CHECK
         local stack = player and player.undo_redo_stack
-        local index
+        local build_index
         if stack then
           for i = 1, stack.get_undo_item_count() do
             for _, action in pairs(stack.get_undo_item(i)) do
               if action.type == "built-entity" and
-                action.surface_index == entity.surface.index and
+                action.surface_index == surface.index and
                 action.target.name == name and
                 action.target.position.x == neighbour.position.x and
                 action.target.position.y == neighbour.position.y then
-                index = i
+                build_index = i
                 break
               end
             end
-            if index then break end
+            if build_index then break end
           end
         end
         local health = neighbour.health
-        local new_prev = entity.surface.create_entity({
+        local new_prev = surface.create_entity({
           name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[name]]["" .. new_mask],
           ghost_name = neighbour.name == "entity-ghost" and variations[base_pipe[name]]["" .. new_mask] or nil,
           position = neighbour.position,
           quality = neighbour.quality,
           force = neighbour.force,
-          player = index and player.index or nil,
-          undo_index = index,
+          player = build_index and player.index or nil,
+          undo_index = build_index,
           create_build_effect_smoke = false,
         }) --[[@as LuaEntity]]
-        neighbour.destroy{player = index and player or nil, undo_index = index}
+        neighbour.destroy{player = build_index and player or nil, undo_index = build_index}
         if health then new_prev.health = health end
       end
     end
