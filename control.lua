@@ -4,6 +4,19 @@ local variations = assert(mod_data.data.variations, "ERROR: data.variations for 
 local bitmasks = assert(mod_data.data.bitmasks, "ERROR: data.bitmasks for parallel-piping not found!")
 local event_filter = {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}}
 
+-- transform "0" to 0 etc
+for index, set in pairs(variations) do
+  local new_set = {}
+  for mask, entity in pairs(set) do
+    if tonumber(mask) then
+      new_set[tonumber(mask)] = entity
+    else
+      new_set[mask] = entity
+    end
+  end
+  variations[index] = new_set
+end
+
 local connectables = {}
 local conversion = {
   tank_pipe = {
@@ -39,7 +52,7 @@ local conversion = {
     }
   },
   pipe_tank = {
-    [0] = {mask = "0"},
+    [0] = {mask = "nothingburger"},
     {mask = "ending", direction = defines.direction.south},
     {mask = "ending", direction = defines.direction.west},
     {mask = "corner", direction = defines.direction.west},
@@ -62,7 +75,7 @@ local function get_or_update_connectables(name)
   if not connectables[name] then
     connectables[name] = {}
     local categories = {}
-    for _, fluidbox in pairs(prototypes.entity[variations[name]["1"]].fluidbox_prototypes) do
+    for _, fluidbox in pairs(prototypes.entity[variations[name][1]].fluidbox_prototypes) do
       for _, pipe_connection in pairs(fluidbox.pipe_connections) do
         if pipe_connection.connection_type == "normal" then
           for _, category in pairs(pipe_connection.connection_category) do
@@ -73,7 +86,7 @@ local function get_or_update_connectables(name)
     end
     for pipe in pairs(variations) do
       local connectable = false
-      local prototype = prototypes.entity[variations[pipe]["1"]]
+      local prototype = prototypes.entity[variations[pipe][1]]
       for _, fluidbox in pairs(prototype.fluidbox_prototypes) do
         for _, pipe_connection in pairs(fluidbox.pipe_connections) do
           if pipe_connection.connection_type == "normal" then
@@ -107,6 +120,8 @@ script.on_init(function()
   storage.existing_connections = {}
   ---@type table<uint, uint> player index -> health
   storage.old_health = {}
+  ---@type table<uint, uint> player index -> health
+  storage.old_fluid = {}
 end)
 
 script.on_configuration_changed(function()
@@ -114,6 +129,7 @@ script.on_configuration_changed(function()
   storage.previous = storage.previous or {}
   storage.existing_connections = storage.existing_connections or {}
   storage.old_health = storage.old_health or {}
+  storage.old_fluid = storage.old_fluid or {}
 end)
 
 local offset_to_bit = {
@@ -186,9 +202,14 @@ local function on_built(event)
           end
         end
         local health = previous.health
+        local fluid = previous.fluidbox[1]
+        if fluid then
+          local amount = previous.fluidbox.get_fluid_segment_contents(1)
+          fluid.amount = amount[fluid.name]
+        end
         local new_prev = surface.create_entity({
-          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]]["" .. new_mask],
-          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]]["" .. new_mask] or nil,
+          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
+          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]][new_mask] or nil,
           position = previous.position,
           quality = previous.quality,
           force = previous.force,
@@ -198,13 +219,15 @@ local function on_built(event)
         }) --[[@as LuaEntity]]
         previous.destroy{player = build_index and player.index or nil, undo_index = build_index}
         if health then new_prev.health = health end
+        if fluid then new_prev.fluidbox[1] = fluid end
       end
     end
   end
 
-  local new_name = variations[base]["" .. variation]
+  local new_name = variations[base][variation]
   if surface.can_place_entity{name = new_name, position = entity.position, force = entity.force} then
     local health = player and storage.old_health[player.index] or entity.health
+    local fluid = player and storage.old_fluid[player.index]
     if player then
       storage.old_health[player.index] = nil
     end
@@ -220,6 +243,7 @@ local function on_built(event)
     }) --[[@as LuaEntity]]
     entity.destroy()
     if health then new_entity.health = health end
+    if fluid then new_entity.fluidbox[1] = fluid end
     if player then
       storage.previous[player.index].entity = new_entity
     end
@@ -248,6 +272,8 @@ script.on_event(defines.events.script_raised_revive, on_built, event_filter)
 ---@param event EventData.on_pre_build
 script.on_event(defines.events.on_pre_build, function(event)
   storage.build_ticks[event.player_index] = event.tick
+  storage.old_health[event.player_index] = nil
+  storage.old_fluid[event.player_index] = nil
   local player = game.get_player(event.player_index)
   local place_result = player.cursor_ghost and player.cursor_ghost.name.place_result or
     player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
@@ -261,12 +287,24 @@ script.on_event(defines.events.on_pre_build, function(event)
     storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
     if entity and event.build_mode == defines.build_mode.normal then
       storage.old_health[event.player_index] = entity and entity.health or nil
+      if entity and entity.fluidbox[1] then
+        local fluid = entity.fluidbox[1]
+        local amount = entity.fluidbox.get_fluid_segment_contents(1)
+        fluid.amount = amount[fluid.name]
+        storage.old_fluid[event.player_index] = fluid
+      end
       entity.health = entity.max_health
     end
   end
   -- mimic normal build event
   if entity and (event.build_mode ~= defines.build_mode.normal or player.controller_type == defines.controllers.remote) then
     storage.old_health[event.player_index] = entity and entity.health or nil
+    local fluid = entity.fluidbox[1]
+    if fluid then
+      local amount = entity.fluidbox.get_fluid_segment_contents(1)
+      fluid.amount = amount[fluid.name]
+      storage.old_fluid[event.player_index] = fluid
+    end
     entity.health = entity.max_health
     local event_data = event
     event.entity = entity.surface.create_entity({
@@ -344,9 +382,14 @@ local function on_destroyed(event)
           end
         end
         local health = neighbour.health
+        local fluid = neighbour.fluidbox[1]
+        if fluid then
+          local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
+          fluid.amount = amount[fluid.name]
+        end
         local new_prev = surface.create_entity({
-          name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[name]]["" .. new_mask],
-          ghost_name = neighbour.name == "entity-ghost" and variations[base_pipe[name]]["" .. new_mask] or nil,
+          name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[name]][new_mask],
+          ghost_name = neighbour.name == "entity-ghost" and variations[base_pipe[name]][new_mask] or nil,
           position = neighbour.position,
           quality = neighbour.quality,
           force = neighbour.force,
@@ -356,6 +399,7 @@ local function on_destroyed(event)
         }) --[[@as LuaEntity]]
         neighbour.destroy{player = build_index and player or nil, undo_index = build_index}
         if health then new_prev.health = health end
+        if fluid then new_prev.fluidbox[1] = fluid end
       end
     end
   end
