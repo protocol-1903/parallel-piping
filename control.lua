@@ -2,7 +2,7 @@ local mod_data = assert(prototypes.mod_data["parallel-piping"], "ERROR: mod-data
 local base_pipe = assert(mod_data.data.base_pipe, "ERROR: data.base_pipe for parallel-piping not found!")
 local variations = assert(mod_data.data.variations, "ERROR: data.variations for parallel-piping not found!")
 local bitmasks = assert(mod_data.data.bitmasks, "ERROR: data.bitmasks for parallel-piping not found!")
-local event_filter = {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}}
+local event_filter = {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}, {filter = "type", type = "storage-tank"}, {filter = "ghost_type", type = "storage-tank"}}
 
 -- transform "0" to 0 etc
 for index, set in pairs(variations) do
@@ -19,35 +19,41 @@ end
 
 local conversion = {
   tank_pipe = {
+    nothingburger = {
+      [0] = 0,
+      [4] = 0,
+      [8] = 0,
+      [12] = 0
+    },
     ending = {
-      north = 4,
-      east = 8,
-      south = 1,
-      west = 2
+      [0] = 4,
+      [4] = 8,
+      [8] = 1,
+      [12] = 2
     },
     straight = {
-      north = 5,
-      east = 10,
-      south = 5,
-      west = 10
+      [0] = 5,
+      [4] = 10,
+      [8] = 5,
+      [12] = 10
     },
     junction = {
-      north = 14,
-      east = 13,
-      south = 11,
-      west = 7
+      [0] = 14,
+      [4] = 13,
+      [8] = 11,
+      [12] = 7
     },
     corner = {
-      north = 6,
-      east = 12,
-      south = 9,
-      west = 3
+      [0] = 6,
+      [4] = 12,
+      [8] = 9,
+      [12] = 3
     },
     cross = {
-      north = 15,
-      east = 15,
-      south = 15,
-      west = 15
+      [0] = 15,
+      [4] = 15,
+      [8] = 15,
+      [12] = 15
     }
   },
   pipe_tank = {
@@ -156,6 +162,30 @@ local function on_built(event)
     end
   end
 
+  -- just placed a blueprint, convert to normal
+  if entity.type == "entity-ghost" and entity.ghost_type == "storage-tank" or entity.type == "storage-tank" then
+    local mask = conversion.tank_pipe[bitmasks[name]][entity.direction]
+    local new_name = variations[base_pipe[name]][mask]
+    local new_entity = surface.create_entity{
+      name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
+      ghost_name = entity.name == "entity-ghost" and new_name or nil,
+      position = entity.position,
+      quality = entity.quality,
+      force = entity.force,
+      player = event.player_index,
+      undo_index = player and 1 or nil,
+      create_build_effect_smoke = false,
+    }
+    entity.destroy()
+    if player then
+      storage.previous[player.index].entity = new_entity
+    end
+    if stack and not blueprint then
+      stack.remove_undo_action(1, 1)
+    end
+    return
+  end
+
   local variation = player and storage.existing_connections[player.index] or 0
   if player then
     storage.existing_connections[player.index] = nil
@@ -191,7 +221,7 @@ local function on_built(event)
           local amount = previous.fluidbox.get_fluid_segment_contents(1)
           fluid.amount = amount[fluid.name]
         end
-        local new_prev = surface.create_entity({
+        local new_prev = surface.create_entity{
           name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
           ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]][new_mask] or nil,
           position = previous.position,
@@ -200,7 +230,7 @@ local function on_built(event)
           player = build_index and player.index or nil,
           undo_index = build_index,
           create_build_effect_smoke = false,
-        }) --[[@as LuaEntity]]
+        }
         previous.destroy()
         if build_index then stack.remove_undo_action(build_index, build_action) end
         if health then new_prev.health = health end
@@ -216,7 +246,7 @@ local function on_built(event)
     if player then
       storage.old_health[player.index] = nil
     end
-    local new_entity = surface.create_entity({
+    local new_entity = surface.create_entity{
       name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
       ghost_name = entity.name == "entity-ghost" and new_name or nil,
       position = entity.position,
@@ -225,7 +255,7 @@ local function on_built(event)
       player = event.player_index,
       undo_index = player and 1 or nil,
       create_build_effect_smoke = false,
-    }) --[[@as LuaEntity]]
+    }
     entity.destroy()
     if health then new_entity.health = health end
     if fluid then new_entity.fluidbox[1] = fluid end
@@ -309,13 +339,13 @@ script.on_event(defines.events.on_pre_build, function(event)
     end
     entity.health = entity.max_health
     local event_data = event
-    event.entity = entity.surface.create_entity({
+    event.entity = entity.surface.create_entity{
       name = base_pipe[entity.name],
       position = entity.position,
       quality = entity.quality,
       force = entity.force,
       create_build_effect_smoke = false
-    })
+    }
     entity.destroy();
     on_built(event_data)
   end
@@ -528,35 +558,35 @@ script.on_event(defines.events.on_entity_died, on_destroyed)
 --   end
 -- end)
 
--- script.on_event(defines.events.on_player_setup_blueprint, function (event)
--- 	local player = game.get_player(event.player_index)
--- 	local blueprint = player.blueprint_to_setup
---   -- if normally invalid
--- 	if not blueprint or not blueprint.valid_for_read then blueprint = player.cursor_stack end
---   -- if non existant, cancel
---   local entities = blueprint and blueprint.get_blueprint_entities()
---   if not entities then return end
---   local changed = false
---   -- update entities
---   for _, entity in pairs(entities) do
---     if base_pipe[entity.name] then
---       changed = true
---       local variation = conversion.pipe_tank[bitmasks[entity.name]]
---       entity.name = variations[base_pipe[entity.name]][variation.mask]
---       entity.direction = variation.direction
---     end
---   end
---   if not changed then return end -- make no changes unless required
---   blueprint.set_blueprint_entities(entities)
--- end)
+script.on_event(defines.events.on_player_setup_blueprint, function (event)
+	local player = game.get_player(event.player_index)
+	local blueprint = player.blueprint_to_setup
+  -- if normally invalid
+	if not blueprint or not blueprint.valid_for_read then blueprint = player.cursor_stack end
+  -- if non existant, cancel
+  local entities = blueprint and blueprint.get_blueprint_entities()
+  if not entities then return end
+  local changed = false
+  -- update entities
+  for _, entity in pairs(entities) do
+    if base_pipe[entity.name] then
+      changed = true
+      local variation = conversion.pipe_tank[bitmasks[entity.name]]
+      entity.name = variations[base_pipe[entity.name]][variation.mask]
+      entity.direction = variation.direction
+    end
+  end
+  if not changed then return end -- make no changes unless required
+  blueprint.set_blueprint_entities(entities)
+end)
 
 -- DONE: cursor ghost
 -- DONE: ghosts in general
 -- DONE: undo/redo
 -- DONE: items being inserted/removed *why*
--- TODO: blueprints
+-- DONE: blueprints
 -- TODO: mod compat checks
--- TODO: on removal update adjacent connections
+-- DONE: on removal update adjacent connections
 -- DONE: health issues
 -- DONE: placing an item with health removes it's health
 -- TODO: placing an item with health on an existing thing removes the item with health (probably can ignore)
