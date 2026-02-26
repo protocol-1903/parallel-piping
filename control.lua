@@ -17,7 +17,6 @@ for index, set in pairs(variations) do
   variations[index] = new_set
 end
 
-local connectables = {}
 local conversion = {
   tank_pipe = {
     ending = {
@@ -71,41 +70,23 @@ local conversion = {
   }
 }
 
-local function get_or_update_connectables(name)
-  if not connectables[name] then
-    connectables[name] = {}
-    local categories = {}
-    for _, fluidbox in pairs(prototypes.entity[variations[name][1]].fluidbox_prototypes) do
-      for _, pipe_connection in pairs(fluidbox.pipe_connections) do
-        if pipe_connection.connection_type == "normal" then
-          for _, category in pairs(pipe_connection.connection_category) do
-            categories[category] = true
-          end
-        end
-      end
-    end
-    for pipe in pairs(variations) do
-      local connectable = false
-      local prototype = prototypes.entity[variations[pipe][1]]
-      for _, fluidbox in pairs(prototype.fluidbox_prototypes) do
-        for _, pipe_connection in pairs(fluidbox.pipe_connections) do
-          if pipe_connection.connection_type == "normal" then
-            for _, category in pairs(pipe_connection.connection_category) do
-              if categories[category] then
-                connectable = true
-                connectables[name][#connectables[name]+1] = pipe
-                break
-              end
-            end
-          end
-          if connectable then break end
-        end
-        if connectable then break end
-      end
-    end
-    for _, base in pairs(connectables[name]) do
-      for _, variation in pairs(variations[base] or {}) do
-        connectables[base][#connectables[base]+1] = variation
+local categories = {}
+local function get_categories(entity)
+  if categories[entity] then return categories[entity] end
+  categories[entity] = prototypes.entity[entity].fluidbox_prototypes[1].pipe_connections[1].connection_category
+  return categories[entity]
+end
+
+local connectables = {}
+local function update_connectables(category)
+  if connectables[category] then return end
+  connectables[category] = {}
+  for pipe in pairs(variations) do
+    connectables[category][pipe] = false
+    for _, c2 in pairs(get_categories(pipe)) do
+      if c2 == category then
+        connectables[category][pipe] = true
+        break
       end
     end
   end
@@ -189,17 +170,20 @@ local function on_built(event)
       local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
       if new_mask ~= bitmasks[prev_name] then
         -- LOSSY UNDO STACK CHECK
-        local build_index
+        local build_index, build_action
         for i = 1, stack.get_undo_item_count() do
-          for _, action in pairs(stack.get_undo_item(i)) do
+          for a, action in pairs(stack.get_undo_item(i)) do
             if action.type == "built-entity" and
               action.surface_index == surface.index and
               action.target.name == previous.name and
               action.target.position.x == previous.position.x and
               action.target.position.y == previous.position.y then
               build_index = i
+              build_action = a
+              break
             end
           end
+          if build_index then break end
         end
         local health = previous.health
         local fluid = previous.fluidbox[1]
@@ -217,7 +201,8 @@ local function on_built(event)
           undo_index = build_index,
           create_build_effect_smoke = false,
         }) --[[@as LuaEntity]]
-        previous.destroy{player = build_index and player.index or nil, undo_index = build_index}
+        previous.destroy()
+        if build_index then stack.remove_undo_action(build_index, build_action) end
         if health then new_prev.health = health end
         if fluid then new_prev.fluidbox[1] = fluid end
       end
@@ -279,10 +264,27 @@ script.on_event(defines.events.on_pre_build, function(event)
     player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
   if not place_result or place_result.type ~= "pipe" then return end
   -- populate if nonexistant
-  get_or_update_connectables(place_result.name)
+  for _, category in pairs(get_categories(place_result.name)) do
+    update_connectables(category)
+  end
   local position = event.position
-  local entity = player.surface.find_entities_filtered{type = "pipe", position = position, limit = 1, name = connectables[place_result.name]}[1]
-  local ghost = player.surface.find_entities_filtered{ghost_type = "pipe", position = position, limit = 1, ghost_name = connectables[place_result.name]}[1]
+  local entity, ghost
+  for _, e in pairs(player.surface.find_entities_filtered{type = "pipe", position = position, radius = 0.25, force = player.force}) do
+    for _, category in pairs(get_categories(place_result.name)) do
+      if connectables[category][base_pipe[e.name]] then
+        entity = e
+        break
+      end
+    end
+  end
+  for _, e in pairs(player.surface.find_entities_filtered{ghost_type = "pipe", position = position, radius = 0.25, force = player.force}) do
+    for _, category in pairs(get_categories(place_result.name)) do
+      if connectables[category][base_pipe[e.ghost_name]] then
+        ghost = e
+        break
+      end
+    end
+  end
   if entity or ghost then
     storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
     if entity and event.build_mode == defines.build_mode.normal then
@@ -296,8 +298,8 @@ script.on_event(defines.events.on_pre_build, function(event)
       entity.health = entity.max_health
     end
   end
-  -- mimic normal build event
   if entity and (event.build_mode ~= defines.build_mode.normal or player.controller_type == defines.controllers.remote) then
+    -- mimic normal build event
     storage.old_health[event.player_index] = entity and entity.health or nil
     local fluid = entity.fluidbox[1]
     if fluid then
@@ -319,97 +321,198 @@ script.on_event(defines.events.on_pre_build, function(event)
   end
 end)
 
+local directional_offsets = {
+  {x = 0, y = -1},
+  {x = 1, y = 0},
+  {x = 0, y = 1},
+  {x = -1, y = 0}
+}
+
 --- @param event EventData.on_player_mined_entity|EventData.on_robot_mined_entity|EventData.on_space_platform_mined_entity|EventData.script_raised_destroy|EventData.on_entity_died
 local function on_destroyed(event)
+  if storage.build_ticks[event.player_index] == event.tick then
+    storage.build_ticks[event.player_index] = nil
+    return -- early return for fast-replace events
+  end
   -- something got removed, disconnect neighbours
   local entity = event.entity
   local player = event.player_index and game.get_player(event.player_index)
+  local prototype = entity.type == "entity-ghost" and entity.ghost_prototype or entity.prototype
   local base = base_pipe[entity.name == "entity-ghost" and entity.ghost_name or entity.name]
   local surface = entity.surface
   local force = entity.force
-  if not base or storage.build_ticks[event.player_index] == event.tick then
-    storage.build_ticks[event.player_index] = nil
-    return
-  end
-  for bit, offset in pairs{
-    [4] = {0, -1},
-    [8] = {1, 0},
-    [1] = {0, 1},
-    [2] = {-1, 0}
-  } do
-    -- populate if nonexistant
-    get_or_update_connectables(base)
-    local neighbour = surface.find_entities_filtered{
-      position = {
-        entity.position.x + offset[1],
-        entity.position.y + offset[2]
-      },
-      force = force,
-      type = "pipe",
-      name = connectables[base],
-      limit = 1,
-    }[1] or surface.find_entities_filtered{
-      position = {
-        entity.position.x + offset[1],
-        entity.position.y + offset[2]
-      },
-      force = force,
-      ghost_type = "pipe",
-      ghost_name = connectables[base],
-      limit = 1,
-    }[1]
-    if neighbour and not neighbour.to_be_deconstructed() then
-      local name = neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name
-      local old_mask = bitmasks[name]
-      local new_mask = old_mask - bit32.band(old_mask, bit)
-      if old_mask ~= new_mask then
-        -- LOSSY UNDO STACK CHECK
-        local stack = player and player.undo_redo_stack
-        local build_index
-        if stack then
-          for i = 1, stack.get_undo_item_count() do
-            for _, action in pairs(stack.get_undo_item(i)) do
-              if action.type == "built-entity" and
-                action.surface_index == surface.index and
-                action.target.name == name and
-                action.target.position.x == neighbour.position.x and
-                action.target.position.y == neighbour.position.y then
-                build_index = i
-                break
-              end
-            end
-            if build_index then break end
-          end
-        end
-        local health = neighbour.health
-        local fluid = neighbour.fluidbox[1]
-        if fluid then
-          local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
-          fluid.amount = amount[fluid.name]
-        end
-        local new_prev = surface.create_entity({
-          name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[name]][new_mask],
-          ghost_name = neighbour.name == "entity-ghost" and variations[base_pipe[name]][new_mask] or nil,
-          position = neighbour.position,
-          quality = neighbour.quality,
-          force = neighbour.force,
-          player = build_index and player.index or nil,
-          undo_index = build_index,
-          create_build_effect_smoke = false,
-        }) --[[@as LuaEntity]]
-        neighbour.destroy{player = build_index and player or nil, undo_index = build_index}
-        if health then new_prev.health = health end
-        if fluid then new_prev.fluidbox[1] = fluid end
+  local stack = player and player.undo_redo_stack
+  local blueprint = stack and #stack.get_undo_item(1) ~= 1
+  if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
+    for i, action in pairs(stack.get_undo_item(1)) do
+      if action.type == "built-entity" and
+      action.target.name == entity.name and
+      action.target.position.x == entity.position.x and
+      action.target.position.y == entity.position.y then
+        stack.remove_undo_action(1, i)
+        break
       end
     end
   end
+  -- fluidbox_prototypes is {} for unsupported entities
+  for _, fluidbox in pairs(prototype.fluidbox_prototypes) do
+    for _, pipe_connection in pairs(fluidbox.pipe_connections) do
+      if pipe_connection.connection_type ~= "normal" then goto continue end
+      local o1 = pipe_connection.positions[entity.direction / 4 + 1]
+      local o2 = directional_offsets[(entity.direction + pipe_connection.direction) % 16 / 4 + 1]
+      local position = {
+        entity.position.x + o1.x + o2.x,
+        entity.position.y + o1.y + o2.y
+      }
+      -- populate if nonexistant
+      for _, category in pairs(get_categories(prototype.name)) do
+        update_connectables(category)
+      end
+      ---@type LuaEntity
+      local neighbour
+      for _, e in pairs(surface.find_entities_filtered{type = "pipe", position = position, radius = 0.25, force = force}) do
+        for _, category in pairs(get_categories(prototype.name)) do
+          if connectables[category][base_pipe[e.name]] then
+            neighbour = e
+            break
+          end
+        end
+      end
+      if not neighbour then
+        for _, e in pairs(surface.find_entities_filtered{ghost_type = "pipe", position = position, radius = 0.25, force = force}) do
+          for _, category in pairs(get_categories(prototype.name)) do
+            if connectables[category][base_pipe[e.ghost_name]] then
+              neighbour = e
+              break
+            end
+          end
+        end
+      end
+      if not neighbour then goto continue end
+      -- skip if not connected to destroyed entity
+      local mask = bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+      local b2 = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+      local bit = 2 ^ (((entity.direction + pipe_connection.direction) / 4 + 2) % 4)
+      if not bit32.btest(mask, bit) then goto continue end
+      mask = mask - bit
+      -- LOSSY UNDO STACK CHECK
+      local build_index, build_action
+      if stack then
+        for i = 1, stack.get_undo_item_count() do
+          for a, action in pairs(stack.get_undo_item(i)) do
+            if action.type == "built-entity" and
+              action.surface_index == surface.index and
+              action.target.name == neighbour.name and
+              action.target.position.x == neighbour.position.x and
+              action.target.position.y == neighbour.position.y then
+              build_index = i
+              build_action = a
+              break
+            end
+          end
+          if build_index then break end
+        end
+      end
+      local health = neighbour.health
+      local marked = neighbour.to_be_deconstructed()
+      local fluid = neighbour.fluidbox[1]
+      if fluid then
+        local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
+        fluid.amount = amount[fluid.name]
+      end
+      local new_neighbour = surface.create_entity({
+        name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[b2][mask],
+        ghost_name = neighbour.name == "entity-ghost" and variations[b2][mask] or nil,
+        position = neighbour.position,
+        quality = neighbour.quality,
+        force = neighbour.force,
+        player = build_index and player.index or nil,
+        undo_index = build_index,
+        create_build_effect_smoke = false,
+      }) --[[@as LuaEntity]]
+      neighbour.destroy()
+      if build_index then stack.remove_undo_action(build_index, build_action) end
+      if health then new_neighbour.health = health end
+      if marked then new_neighbour.order_deconstruction(new_neighbour.force) end
+      if fluid then new_neighbour.fluidbox[1] = fluid end
+      ::continue::
+    end
+  end
+        -- local base = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+        -- if not base then goto continue end
+        -- -- populate if nonexistant
+        -- get_or_update_connectables(base)
+        -- local neighbour = surface.find_entities_filtered{
+        --   position = {
+        --     entity.position.x + offset[1],
+        --     entity.position.y + offset[2]
+        --   },
+        --   force = force,
+        --   type = "pipe",
+        --   name = connectables[base],
+        --   limit = 1,
+        -- }[1] or surface.find_entities_filtered{
+        --   position = {
+        --     entity.position.x + offset[1],
+        --     entity.position.y + offset[2]
+        --   },
+        --   force = force,
+        --   ghost_type = "pipe",
+        --   ghost_name = connectables[base],
+        --   limit = 1,
+        -- }[1]
+        -- if neighbour and not neighbour.to_be_deconstructed() then
+        --   local name = neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name
+        --   local old_mask = bitmasks[name]
+        --   local new_mask = old_mask - bit32.band(old_mask, bit)
+        --   if old_mask ~= new_mask then
+        --     -- LOSSY UNDO STACK CHECK
+        --     local stack = player and player.undo_redo_stack
+        --     local build_index
+        --     if stack then
+        --       for i = 1, stack.get_undo_item_count() do
+        --         for _, action in pairs(stack.get_undo_item(i)) do
+        --           if action.type == "built-entity" and
+        --             action.surface_index == surface.index and
+        --             action.target.name == name and
+        --             action.target.position.x == neighbour.position.x and
+        --             action.target.position.y == neighbour.position.y then
+        --             build_index = i
+        --             break
+        --           end
+        --         end
+        --         if build_index then break end
+        --       end
+        --     end
+        --     local health = neighbour.health
+        --     local fluid = neighbour.fluidbox[1]
+        --     if fluid then
+        --       local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
+        --       fluid.amount = amount[fluid.name]
+        --     end
+        --     local new_prev = surface.create_entity({
+        --       name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[name]][new_mask],
+        --       ghost_name = neighbour.name == "entity-ghost" and variations[base_pipe[name]][new_mask] or nil,
+        --       position = neighbour.position,
+        --       quality = neighbour.quality,
+        --       force = neighbour.force,
+        --       player = build_index and player.index or nil,
+        --       undo_index = build_index,
+        --       create_build_effect_smoke = false,
+        --     }) --[[@as LuaEntity]]
+        --     neighbour.destroy{player = build_index and player or nil, undo_index = build_index}
+        --     if health then new_prev.health = health end
+        --     if fluid then new_prev.fluidbox[1] = fluid end
+        --   end
+        -- end
+        -- ::continue::
 end
 
-script.on_event(defines.events.on_player_mined_entity, on_destroyed, event_filter)
-script.on_event(defines.events.on_robot_mined_entity, on_destroyed, event_filter)
-script.on_event(defines.events.on_space_platform_mined_entity, on_destroyed, event_filter)
-script.on_event(defines.events.script_raised_destroy, on_destroyed, event_filter)
-script.on_event(defines.events.on_entity_died, on_destroyed, event_filter)
+script.on_event(defines.events.on_player_mined_entity, on_destroyed)
+script.on_event(defines.events.on_robot_mined_entity, on_destroyed)
+script.on_event(defines.events.on_space_platform_mined_entity, on_destroyed)
+script.on_event(defines.events.script_raised_destroy, on_destroyed)
+script.on_event(defines.events.on_entity_died, on_destroyed)
 
 -- script.on_event(defines.events.on_undo_applied, function (event)
 --   for _, action in pairs(event.actions) do
@@ -457,5 +560,5 @@ script.on_event(defines.events.on_entity_died, on_destroyed, event_filter)
 -- DONE: health issues
 -- DONE: placing an item with health removes it's health
 -- TODO: placing an item with health on an existing thing removes the item with health (probably can ignore)
--- TODO: fluid shit
--- TODO: if aup installed, search with a specific collision mask
+-- DONE: fluid shit
+-- DONE: if aup installed, search with a specific collision mask

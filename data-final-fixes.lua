@@ -32,21 +32,29 @@ local blacklist = {}
 NORTH VERSIONS:
   o - pipe connection
   x - blocked
-T-JUNCTION:
+NOTHINGBURGER:
   x
- o o
-  o
-CORNER:
+ x x
   x
- x o
+ENDING:
+  x
+ x x
   o
 STRAIGHT:
   o
  x x
   o
-ENDING:
+CORNER:
   x
- x x
+ x o
+  o
+JUNCTION:
+  x
+ o o
+  o
+CROSS:
+  o
+ o o
   o
 ]]
 
@@ -122,6 +130,10 @@ for _, prototype in pairs(data.raw["pipe-to-ground"]) do
   prototype.fast_replaceable_group = nil
 end
 
+for _, prototype in pairs(data.raw["infinity-pipe"]) do
+  prototype.fast_replaceable_group = nil
+end
+
 local new_entities = {}
 
 for p, prototype in pairs(data.raw.pipe) do
@@ -154,14 +166,14 @@ for p, prototype in pairs(data.raw.pipe) do
     end
     -- create variations for blueprints
     for suffix, metadata in pairs{
-      straight = {
+      nothingburger = {
         pictures = {
-          north = "straight_vertical",
-          east = "straight_horizontal",
-          south = "straight_vertical",
-          west = "straight_horizontal"
+          north = "straight_vertical_single",
+          east = "straight_vertical_single",
+          south = "straight_vertical_single",
+          west = "straight_vertical_single"
         },
-        pipe_connections = {1, 3}
+        pipe_connections = {}
       },
       ending = {
         pictures = {
@@ -172,14 +184,14 @@ for p, prototype in pairs(data.raw.pipe) do
         },
         pipe_connections = {3}
       },
-      junction = {
+      straight = {
         pictures = {
-          north = "t_down",
-          east = "t_left",
-          south = "t_up",
-          west = "t_right"
+          north = "straight_vertical",
+          east = "straight_horizontal",
+          south = "straight_vertical",
+          west = "straight_horizontal"
         },
-        pipe_connections = {2, 3, 4}
+        pipe_connections = {1, 3}
       },
       corner = {
         pictures = {
@@ -189,6 +201,15 @@ for p, prototype in pairs(data.raw.pipe) do
           west = "corner_up_right"
         },
         pipe_connections = {2, 3}
+      },
+      junction = {
+        pictures = {
+          north = "t_down",
+          east = "t_left",
+          south = "t_up",
+          west = "t_right"
+        },
+        pipe_connections = {2, 3, 4}
       },
       cross = {
         pictures = {
@@ -231,6 +252,12 @@ for p, prototype in pairs(data.raw.pipe) do
       variations[p][suffix] = tank.name
       bitmasks[tank.name] = suffix
     end
+    -- ensure at least one connection even if its not useable
+    prototype.fluid_box.pipe_connections = {{
+      connection_type = "linked",
+      linked_connection_id = 1,
+      connection_category = pipe_connections[1].connection_category
+    }}
     prototype.collision_mask = {layers = {out_of_map = true}}
     -- prototype.fluid_box.pipe_connections = pipe_connections
     -- data.raw.item[p].place_result = p .. "-pp-tester"
