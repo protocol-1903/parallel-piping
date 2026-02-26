@@ -193,8 +193,8 @@ local function on_built(event)
   end
 
   if previous then
-    previous = previous.entity
-    if previous.valid then
+    if previous.entity.valid then
+      previous = previous.entity
       local prev_name = previous.name == "entity-ghost" and previous.ghost_name or previous.name
       local prev_variation = get_connection_bit(previous.position, entity.position)
       local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
@@ -247,6 +247,8 @@ local function on_built(event)
         if health then new_prev.health = health end
         if fluid then new_prev.fluidbox[1] = fluid end
       end
+    else -- always apply if not valid (was placed in entitys)
+      variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
     end
   end
 
