@@ -192,23 +192,5 @@ data:extend{
       variations = variations,
       bitmasks = bitmasks
     }
-  },
-  {
-    type = "custom-input",
-    name = "piping-configure",
-    linked_game_control = "build",
-    key_sequence = ""
-  },
-  {
-    name = "piping-rotate",
-    type = "custom-input",
-    linked_game_control = "rotate",
-    key_sequence = ""
-  },
-  {
-    name = "piping-reverse-rotate",
-    type = "custom-input",
-    linked_game_control = "reverse-rotate",
-    key_sequence = ""
   }
 }
