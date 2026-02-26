@@ -476,74 +476,6 @@ local function on_destroyed(event)
       ::continue::
     end
   end
-        -- local base = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
-        -- if not base then goto continue end
-        -- -- populate if nonexistant
-        -- get_or_update_connectables(base)
-        -- local neighbour = surface.find_entities_filtered{
-        --   position = {
-        --     entity.position.x + offset[1],
-        --     entity.position.y + offset[2]
-        --   },
-        --   force = force,
-        --   type = "pipe",
-        --   name = connectables[base],
-        --   limit = 1,
-        -- }[1] or surface.find_entities_filtered{
-        --   position = {
-        --     entity.position.x + offset[1],
-        --     entity.position.y + offset[2]
-        --   },
-        --   force = force,
-        --   ghost_type = "pipe",
-        --   ghost_name = connectables[base],
-        --   limit = 1,
-        -- }[1]
-        -- if neighbour and not neighbour.to_be_deconstructed() then
-        --   local name = neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name
-        --   local old_mask = bitmasks[name]
-        --   local new_mask = old_mask - bit32.band(old_mask, bit)
-        --   if old_mask ~= new_mask then
-        --     -- LOSSY UNDO STACK CHECK
-        --     local stack = player and player.undo_redo_stack
-        --     local build_index
-        --     if stack then
-        --       for i = 1, stack.get_undo_item_count() do
-        --         for _, action in pairs(stack.get_undo_item(i)) do
-        --           if action.type == "built-entity" and
-        --             action.surface_index == surface.index and
-        --             action.target.name == name and
-        --             action.target.position.x == neighbour.position.x and
-        --             action.target.position.y == neighbour.position.y then
-        --             build_index = i
-        --             break
-        --           end
-        --         end
-        --         if build_index then break end
-        --       end
-        --     end
-        --     local health = neighbour.health
-        --     local fluid = neighbour.fluidbox[1]
-        --     if fluid then
-        --       local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
-        --       fluid.amount = amount[fluid.name]
-        --     end
-        --     local new_prev = surface.create_entity({
-        --       name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[name]][new_mask],
-        --       ghost_name = neighbour.name == "entity-ghost" and variations[base_pipe[name]][new_mask] or nil,
-        --       position = neighbour.position,
-        --       quality = neighbour.quality,
-        --       force = neighbour.force,
-        --       player = build_index and player.index or nil,
-        --       undo_index = build_index,
-        --       create_build_effect_smoke = false,
-        --     }) --[[@as LuaEntity]]
-        --     neighbour.destroy{player = build_index and player or nil, undo_index = build_index}
-        --     if health then new_prev.health = health end
-        --     if fluid then new_prev.fluidbox[1] = fluid end
-        --   end
-        -- end
-        -- ::continue::
 end
 
 script.on_event(defines.events.on_player_mined_entity, on_destroyed)
@@ -551,20 +483,6 @@ script.on_event(defines.events.on_robot_mined_entity, on_destroyed)
 script.on_event(defines.events.on_space_platform_mined_entity, on_destroyed)
 script.on_event(defines.events.script_raised_destroy, on_destroyed)
 script.on_event(defines.events.on_entity_died, on_destroyed)
-
--- script.on_event(defines.events.on_undo_applied, function (event)
---   for _, action in pairs(event.actions) do
---     if action.type == "built-entity" and base_pipe[action.target.name] then
---       -- undoing build, the entity is being tagged for deconstruction
---       local tags = action.tags or {}
---       tags.pipemask = bitmasks[action.target.name]
---       action.tags = tags
---       action.target.name = 
---     elseif action.type == "removed-entity" and base_pipe[action.target.name] then
---       -- redoing build, the entity is being ghost placed
---     end
---   end
--- end)
 
 script.on_event(defines.events.on_player_setup_blueprint, function (event)
 	local player = game.get_player(event.player_index)
@@ -587,16 +505,3 @@ script.on_event(defines.events.on_player_setup_blueprint, function (event)
   if not changed then return end -- make no changes unless required
   blueprint.set_blueprint_entities(entities)
 end)
-
--- DONE: cursor ghost
--- DONE: ghosts in general
--- DONE: undo/redo
--- DONE: items being inserted/removed *why*
--- DONE: blueprints
--- TODO: mod compat checks
--- DONE: on removal update adjacent connections
--- DONE: health issues
--- DONE: placing an item with health removes it's health
--- TODO: placing an item with health on an existing thing removes the item with health (probably can ignore)
--- DONE: fluid shit
--- DONE: if aup installed, search with a specific collision mask
