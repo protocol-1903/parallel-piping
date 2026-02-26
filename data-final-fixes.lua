@@ -255,8 +255,7 @@ for p, prototype in pairs(data.raw.pipe) do
     -- ensure at least one connection even if its not useable
     prototype.fluid_box.pipe_connections = {{
       connection_type = "linked",
-      linked_connection_id = 1,
-      connection_category = pipe_connections[1].connection_category
+      linked_connection_id = 1
     }}
     prototype.collision_mask = {layers = {out_of_map = true}}
     -- prototype.fluid_box.pipe_connections = pipe_connections

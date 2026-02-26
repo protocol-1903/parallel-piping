@@ -79,7 +79,7 @@ local conversion = {
 local categories = {}
 local function get_categories(entity)
   if categories[entity] then return categories[entity] end
-  categories[entity] = prototypes.entity[entity].fluidbox_prototypes[1].pipe_connections[1].connection_category
+  categories[entity] = prototypes.entity[base_pipe[entity] and variations[base_pipe[entity]][1] or entity].fluidbox_prototypes[1].pipe_connections[1].connection_category
   return categories[entity]
 end
 
@@ -186,19 +186,30 @@ local function on_built(event)
     return
   end
 
-  local variation = player and storage.existing_connections[player.index] or 0
+  local existing = player and storage.existing_connections[player.index]
+  local variation = existing and bitmasks[existing] or 0
   if player then
     storage.existing_connections[player.index] = nil
   end
 
   if previous then
-    variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
     previous = previous.entity
     if previous.valid then
       local prev_name = previous.name == "entity-ghost" and previous.ghost_name or previous.name
       local prev_variation = get_connection_bit(previous.position, entity.position)
       local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
-      if new_mask ~= bitmasks[prev_name] then
+      local connect = base_pipe[existing or name] == base_pipe[prev_name] or existing == ""
+      if not connect then
+        for _, category in pairs(get_categories(base_pipe[existing or name])) do
+          update_connectables(category)
+          if connectables[category][base_pipe[prev_name]] then
+            connect = true
+            break
+          end
+        end
+      end
+      if connect and new_mask ~= bitmasks[prev_name] then
+        variation = bit32.bor(variation, get_connection_bit(entity.position, previous.position))
         -- LOSSY UNDO STACK CHECK
         local build_index, build_action
         for i = 1, stack.get_undo_item_count() do
@@ -298,25 +309,22 @@ script.on_event(defines.events.on_pre_build, function(event)
     update_connectables(category)
   end
   local position = event.position
-  local entity, ghost
-  for _, e in pairs(player.surface.find_entities_filtered{type = "pipe", position = position, radius = 0.25, force = player.force}) do
-    for _, category in pairs(get_categories(place_result.name)) do
-      if connectables[category][base_pipe[e.name]] then
-        entity = e
-        break
-      end
-    end
-  end
-  for _, e in pairs(player.surface.find_entities_filtered{ghost_type = "pipe", position = position, radius = 0.25, force = player.force}) do
-    for _, category in pairs(get_categories(place_result.name)) do
-      if connectables[category][base_pipe[e.ghost_name]] then
-        ghost = e
-        break
-      end
-    end
-  end
+  local entity = player.surface.find_entities_filtered{
+    type = "pipe",
+    position = position,
+    radius = 0.25,
+    force = player.force,
+    collision_mask = prototypes.entity[variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
+  }[1]
+  local ghost = player.surface.find_entities_filtered{
+    ghost_type = "pipe",
+    position = position,
+    radius = 0.25,
+    force = player.force,
+    collision_mask = prototypes.entity[variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
+  }[1]
   if entity or ghost then
-    storage.existing_connections[event.player_index] = bitmasks[entity and entity.name or ghost.ghost_name]
+    storage.existing_connections[event.player_index] = entity and entity.name or ghost.ghost_name
     if entity and event.build_mode == defines.build_mode.normal then
       storage.old_health[event.player_index] = entity and entity.health or nil
       if entity and entity.fluidbox[1] then
