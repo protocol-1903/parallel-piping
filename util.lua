@@ -8,9 +8,12 @@ xu.bitmasks = assert(mod_data.data.bitmasks, "ERROR: data.bitmasks for parallel-
 
 xu.categories = {}
 xu.get_categories = function(entity)
-  if xu.categories[entity] then return xu.categories[entity] end
-  xu.categories[entity] = prototypes.entity[xu.base_pipe[entity] and xu.variations[xu.base_pipe[entity]][1] or entity].fluidbox_prototypes[1].pipe_connections[1].connection_category
-  return xu.categories[entity]
+  local base = xu.base_pipe[entity] and xu.variations[xu.base_pipe[entity]][1] or entity
+  if xu.categories[base] then return xu.categories[base] end
+  local prototype = prototypes.entity[base]
+  if not prototype.fluidbox_prototypes[1] then return {} end
+  xu.categories[base] = prototype.fluidbox_prototypes[1].pipe_connections[1].connection_category or {}
+  return xu.categories[base]
 end
 
 xu.connectables = {}
