@@ -43,19 +43,24 @@ for _, surface in pairs(game.surfaces) do
         end
         local health = entity.health
         local marked = entity.to_be_deconstructed()
+        local fluid = entity.fluidbox[1]
+        if fluid then
+          local amount = entity.fluidbox.get_fluid_segment_contents(1)
+          fluid.amount = amount[fluid.name]
+        end
         local params = {
           name = entity.name == "entity-ghost" and "entity-ghost" or xu.variations[base][mask],
           ghost_name = entity.name == "entity-ghost" and xu.variations[base][mask] or nil,
           position = entity.position,
           quality = entity.quality,
           force = entity.force,
-          fast_replace = true,
-          spill = false,
           create_build_effect_smoke = false,
         }
+        entity.destroy()
         local new_entity = surface.create_entity(params)
         if health then new_entity.health = health end
         if marked then new_entity.order_deconstruction(new_entity.force) end
+        if fluid then new_entity.fluidbox[1] = fluid end
       end
     end
   end
