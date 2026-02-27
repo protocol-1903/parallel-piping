@@ -181,10 +181,18 @@ local function find_build_item(stack, entity)
   end
 end
 
+---@param prototype LuaEntityPrototype
+---@return double size
+local function get_size(prototype)
+  local box = prototype.collision_box
+  local dx, dy = box.right_bottom.x - box.left_top.x, box.right_bottom.y - box.left_top.y
+  return dx > dy and dx or dy
+end
+
 script.on_init(function()
   ---@type table<uint, uint> player index -> tick
   storage.build_ticks = {}
-  ---@type table<uint, {entity:LuaEntity, position:MapPosition}> player index -> entity, position
+  ---@type table<uint, LuaEntity> player index -> entity
   storage.previous = {}
   ---@type table<uint, uint> player index -> bitmask
   storage.existing_connections = {}
@@ -217,7 +225,8 @@ local function on_built(event)
   if player then
     storage.previous[player.index] = entity
   end
-  local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
+  local prototype = entity.name == "entity-ghost" and entity.ghost_prototype or entity.prototype
+  local name = prototype.name
   local base = base_pipe[name]
 
   -- only handle normal placement, for now. ignore undo/redo
@@ -261,23 +270,26 @@ local function on_built(event)
     storage.existing_connections[player.index] = nil
   end
 
+  local can_place = surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
+
   if previous and previous.valid then
-    local prev_name = previous.name == "entity-ghost" and previous.ghost_name or previous.name
-    if base_pipe[prev_name] then
+    local prev_prototype = previous.name == "entity-ghost" and previous.ghost_prototype or previous.prototype
+    if base_pipe[prev_prototype.name] then
       local prev_variation = 2 ^ (get_direction(previous.position, entity.position) / 4)
-      local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
-      local connect = base_pipe[existing or name] == base_pipe[prev_name] or existing == ""
+      local new_mask = bit32.bor(bitmasks[prev_prototype.name], prev_variation)
+      local connect = base_pipe[existing or name] == base_pipe[prev_prototype.name] or existing == ""
       local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
         for _, category in pairs(get_categories(base_pipe[existing or name])) do
           update_connectables(category)
-          if connectables[category][base_pipe[prev_name]] then
+          if connectables[category][base_pipe[prev_prototype.name]] then
             connect = true
             break
           end
         end
       end
-      if dx ~= dy and math.max(dx, dy) == 1 and connect and new_mask ~= bitmasks[prev_name] then
+      local dist = (math.ceil(get_size(prototype)) + math.ceil(get_size(prev_prototype))) / 2
+      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= bitmasks[prev_prototype.name] then
         variation = bit32.bor(variation, 2 ^ (get_direction(entity.position, previous.position) / 4))
         -- LOSSY UNDO STACK CHECK
         local build_index, build_action = find_build_item(stack, previous)
@@ -288,8 +300,8 @@ local function on_built(event)
           fluid.amount = amount[fluid.name]
         end
         local new_prev = surface.create_entity{
-          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
-          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]][new_mask] or nil,
+          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_prototype.name]][new_mask],
+          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_prototype.name]][new_mask] or nil,
           position = previous.position,
           quality = previous.quality,
           force = previous.force,
@@ -304,7 +316,6 @@ local function on_built(event)
       end
     else -- not a pipe, connect generically if allowed
       for _, neighbour in pairs(get_pipe_neighoburs(previous)) do
-        game.print(neighbour)
         if neighbour.unit_number == entity.unit_number then
           variation = bit32.bor(variation, 2 ^ (get_direction(entity.position, previous.position) / 4))
           break
@@ -314,7 +325,7 @@ local function on_built(event)
   end
 
   local new_name = variations[base][variation]
-  if surface.can_place_entity{name = new_name, position = entity.position, force = entity.force} then
+  if can_place then
     local health = player and storage.old_health[player.index] or entity.health
     local fluid = player and storage.old_fluid[player.index]
     if player then
