@@ -229,39 +229,38 @@ local function on_built(event)
   local name = prototype.name
   local base = base_pipe[name]
 
-  -- only handle normal placement, for now. ignore undo/redo
-  if not base then return end
-
   local surface = entity.surface
   local stack = player and player.undo_redo_stack
   local blueprint = stack and #stack.get_undo_item(1) ~= 1
-  if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
-    local i = find_build_action(stack.get_undo_item(1), entity)
-    if i then stack.remove_undo_action(1, i) end
-  end
+  if base then
+    if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
+      local i = find_build_action(stack.get_undo_item(1), entity)
+      if i then stack.remove_undo_action(1, i) end
+    end
 
-  -- just placed a blueprint, convert to normal
-  if entity.type == "entity-ghost" and entity.ghost_type == "storage-tank" or entity.type == "storage-tank" then
-    local mask = conversion.tank_pipe[bitmasks[name]][entity.direction]
-    local new_name = variations[base_pipe[name]][mask]
-    local new_entity = surface.create_entity{
-      name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
-      ghost_name = entity.name == "entity-ghost" and new_name or nil,
-      position = entity.position,
-      quality = entity.quality,
-      force = entity.force,
-      player = event.player_index,
-      undo_index = player and 1 or nil,
-      create_build_effect_smoke = false,
-    }
-    entity.destroy()
-    if player then
-      storage.previous[player.index] = new_entity
+    -- just placed a blueprint, convert to normal
+    if entity.type == "entity-ghost" and entity.ghost_type == "storage-tank" or entity.type == "storage-tank" then
+      local mask = conversion.tank_pipe[bitmasks[name]][entity.direction]
+      local new_name = variations[base_pipe[name]][mask]
+      local new_entity = surface.create_entity{
+        name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
+        ghost_name = entity.name == "entity-ghost" and new_name or nil,
+        position = entity.position,
+        quality = entity.quality,
+        force = entity.force,
+        player = event.player_index,
+        undo_index = player and 1 or nil,
+        create_build_effect_smoke = false,
+      }
+      entity.destroy()
+      if player then
+        storage.previous[player.index] = new_entity
+      end
+      if stack and not blueprint then
+        stack.remove_undo_action(1, 1)
+      end
+      return
     end
-    if stack and not blueprint then
-      stack.remove_undo_action(1, 1)
-    end
-    return
   end
 
   local existing = player and storage.existing_connections[player.index]
@@ -270,7 +269,7 @@ local function on_built(event)
     storage.existing_connections[player.index] = nil
   end
 
-  local can_place = surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
+  local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
 
   if previous and previous.valid then
     local prev_prototype = previous.name == "entity-ghost" and previous.ghost_prototype or previous.prototype
@@ -280,7 +279,7 @@ local function on_built(event)
       local connect = base_pipe[existing or name] == base_pipe[prev_prototype.name] or existing == ""
       local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
-        for _, category in pairs(get_categories(base_pipe[existing or name])) do
+        for _, category in pairs(get_categories(base and base_pipe[existing or name] or name)) do
           update_connectables(category)
           if connectables[category][base_pipe[prev_prototype.name]] then
             connect = true
@@ -324,10 +323,10 @@ local function on_built(event)
     end
   end
 
-  local new_name = variations[base][variation]
   if can_place then
     local health = player and storage.old_health[player.index] or entity.health
     local fluid = player and storage.old_fluid[player.index]
+    local new_name = variations[base][variation]
     if player then
       storage.old_health[player.index] = nil
     end
@@ -347,7 +346,7 @@ local function on_built(event)
     if player then
       storage.previous[player.index] = new_entity
     end
-  else
+  elseif base then
     if player and player.cursor_stack and player.cursor_stack.valid_for_read then
       player.cursor_stack.count = player.cursor_stack.count + 1
     elseif player and event.consumed_items and player.cursor_stack and player.is_cursor_empty() then
@@ -357,7 +356,7 @@ local function on_built(event)
     local params = {
       position = entity.position,
       force = entity.force,
-      collision_mask = prototypes.entity[new_name].collision_mask.layers,
+      collision_mask = prototypes.entity[variations[base][variation]].collision_mask.layers,
       limit = 1
     }
     entity.destroy()
@@ -372,7 +371,7 @@ local function on_built(event)
   end
 end
 
-script.on_event(defines.events.on_built_entity, on_built, event_filter)
+script.on_event(defines.events.on_built_entity, on_built)
 script.on_event(defines.events.on_robot_built_entity, on_built, event_filter)
 script.on_event(defines.events.on_space_platform_built_entity, on_built, event_filter)
 script.on_event(defines.events.script_raised_built, on_built, event_filter)
