@@ -28,7 +28,7 @@ xu.update_connectables = function(category)
   end
 end
 
-local directional_offsets = {
+xu.directional_offsets = {
   {x = 0, y = -1},
   {x = 1, y = 0},
   {x = 0, y = 1},
@@ -47,7 +47,7 @@ xu.get_pipe_neighoburs = function(entity)
     for _, pipe_connection in pairs(fluidbox.pipe_connections) do
       if pipe_connection.connection_type ~= "normal" then goto continue end
       local o1 = pipe_connection.positions[entity.direction / 4 + 1]
-      local o2 = directional_offsets[(entity.direction + pipe_connection.direction) % 16 / 4 + 1]
+      local o2 = xu.directional_offsets[(entity.direction + pipe_connection.direction) % 16 / 4 + 1]
       local position = {
         entity.position.x + o1.x + o2.x,
         entity.position.y + o1.y + o2.y
@@ -58,7 +58,7 @@ xu.get_pipe_neighoburs = function(entity)
       end
       ---@type LuaEntity
       local neighbour
-      for _, e in pairs(surface.find_entities_filtered{type = "pipe", position = position, radius = 0.25, force = force}) do
+      for _, e in pairs(surface.find_entities_filtered{type = "pipe", position = position, force = force}) do
         for _, category in pairs(xu.get_categories(prototype.name)) do
           if xu.connectables[category][xu.base_pipe[e.name]] then
             neighbour = e
@@ -67,7 +67,7 @@ xu.get_pipe_neighoburs = function(entity)
         end
       end
       if not neighbour then
-        for _, e in pairs(surface.find_entities_filtered{ghost_type = "pipe", position = position, radius = 0.25, force = force}) do
+        for _, e in pairs(surface.find_entities_filtered{ghost_type = "pipe", position = position, force = force}) do
           for _, category in pairs(xu.get_categories(prototype.name)) do
             if xu.connectables[category][xu.base_pipe[e.ghost_name]] then
               neighbour = e

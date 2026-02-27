@@ -269,16 +269,13 @@ local function on_destroyed(event)
   -- something got removed, disconnect neighbours
   local entity = event.entity
   local player = event.player_index and game.get_player(event.player_index)
-  local prototype = entity.type == "entity-ghost" and entity.ghost_prototype or entity.prototype
   local surface = entity.surface
-  local force = entity.force
   local stack = player and player.undo_redo_stack
   local blueprint = stack and #stack.get_undo_item(1) ~= 1
   if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
     local i = xu.find_build_action(stack.get_undo_item(1), entity)
     if i then stack.remove_undo_action(1, i) end
   end
-  -- fluidbox_prototypes is {} for unsupported entities
   for _, neighbour in pairs(xu.get_pipe_neighoburs(entity)) do
     local mask = xu.bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
     local b2 = xu.base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
