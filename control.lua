@@ -82,6 +82,8 @@ local function on_built(event)
     end
   end
 
+  if not player then return end
+
   local existing = player and storage.existing_connections[player.index]
   local variation = existing and xu.bitmasks[existing] or 0
   if player then
@@ -210,20 +212,25 @@ script.on_event(defines.events.on_pre_build, function(event)
     xu.update_connectables(category)
   end
   local position = event.position
+  local mask = prototypes.entity[xu.variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
   local entity = player.surface.find_entities_filtered{
     type = "pipe",
     position = position,
-    radius = 0.25,
     force = player.force,
-    collision_mask = prototypes.entity[xu.variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
+    collision_mask = mask
   }[1]
-  local ghost = player.surface.find_entities_filtered{
+  local ghost
+  for _, e in pairs(player.surface.find_entities_filtered{
+    type = "entity-ghost",
     ghost_type = "pipe",
     position = position,
-    radius = 0.25,
-    force = player.force,
-    collision_mask = prototypes.entity[xu.variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
-  }[1]
+    force = player.force
+  }) do
+    if e.ghost_prototype.collision_mask.layers[mask] then
+      ghost = e
+      break
+    end
+  end
   if entity or ghost then
     storage.existing_connections[event.player_index] = entity and entity.name or ghost.ghost_name
     if entity and event.build_mode == defines.build_mode.normal then
