@@ -12,7 +12,12 @@ xu.get_categories = function(entity)
   if xu.categories[base] then return xu.categories[base] end
   local prototype = prototypes.entity[base]
   if not prototype.fluidbox_prototypes[1] then return {} end
-  xu.categories[base] = prototype.fluidbox_prototypes[1].pipe_connections[1].connection_category or {}
+  xu.categories[base] = {}
+  for _, pipe_connection in pairs(prototype.fluidbox_prototypes[1].pipe_connections) do
+    for _, category in pairs(pipe_connection.connection_category) do
+      xu.categories[base][category] = true
+    end
+  end
   return xu.categories[base]
 end
 
@@ -21,13 +26,7 @@ xu.update_connectables = function(category)
   if xu.connectables[category] then return end
   xu.connectables[category] = {}
   for pipe in pairs(xu.variations) do
-    xu.connectables[category][pipe] = false
-    for _, c2 in pairs(xu.get_categories(pipe)) do
-      if c2 == category then
-        xu.connectables[category][pipe] = true
-        break
-      end
-    end
+    xu.connectables[category][pipe] = xu.get_categories(pipe)[category]
   end
 end
 
@@ -56,13 +55,13 @@ xu.get_pipe_neighoburs = function(entity)
         entity.position.y + o1.y + o2.y
       }
       -- populate if nonexistant
-      for _, category in pairs(xu.get_categories(prototype.name)) do
+      for category in pairs(xu.get_categories(prototype.name)) do
         xu.update_connectables(category)
       end
       ---@type LuaEntity
       local neighbour
       for _, e in pairs(surface.find_entities_filtered{type = "pipe", position = position, force = force}) do
-        for _, category in pairs(xu.get_categories(prototype.name)) do
+        for category in pairs(xu.get_categories(prototype.name)) do
           if xu.connectables[category][xu.base_pipe[e.name]] then
             neighbour = e
             break
@@ -71,7 +70,7 @@ xu.get_pipe_neighoburs = function(entity)
       end
       if not neighbour then
         for _, e in pairs(surface.find_entities_filtered{ghost_type = "pipe", position = position, force = force}) do
-          for _, category in pairs(xu.get_categories(prototype.name)) do
+          for category in pairs(xu.get_categories(prototype.name)) do
             if xu.connectables[category][xu.base_pipe[e.ghost_name]] then
               neighbour = e
               break

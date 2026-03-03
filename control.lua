@@ -98,7 +98,7 @@ local function on_built(event)
       local connect = xu.base_pipe[existing or name] == xu.base_pipe[prev_prototype.name] or existing == ""
       local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
-        for _, category in pairs(xu.get_categories(base and xu.base_pipe[existing or name] or name)) do
+        for category in pairs(xu.get_categories(base and xu.base_pipe[existing or name] or name)) do
           xu.update_connectables(category)
           if xu.connectables[category][xu.base_pipe[prev_prototype.name]] then
             connect = true
@@ -206,7 +206,7 @@ script.on_event(defines.events.on_pre_build, function(event)
     player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
   if not place_result or place_result.type ~= "pipe" then return end
   -- populate if nonexistant
-  for _, category in pairs(xu.get_categories(place_result.name)) do
+  for category in pairs(xu.get_categories(place_result.name)) do
     xu.update_connectables(category)
   end
   local position = event.position
@@ -300,7 +300,7 @@ local function on_destroyed(event)
         player = build_index and player.index or nil,
         undo_index = build_index,
         create_build_effect_smoke = false,
-      }) --[[@as LuaEntity]]
+      })
       neighbour.destroy()
       if build_index then stack.remove_undo_action(build_index, build_action) end
       if health then new_neighbour.health = health end

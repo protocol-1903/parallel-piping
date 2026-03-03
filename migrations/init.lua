@@ -19,7 +19,7 @@ for _, surface in pairs(game.surfaces) do
             position = position,
             force = force,
           }) do
-            for _, category in pairs(xu.get_categories(e.name == "entity-ghost" and e.ghost_name or e.name)) do
+            for category in pairs(xu.get_categories(e.name == "entity-ghost" and e.ghost_name or e.name)) do
               xu.update_connectables(category)
               if xu.connectables[category][prototype.name] then
                 neighbour = e
