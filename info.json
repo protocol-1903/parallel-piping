@@ -9,7 +9,7 @@
   "dependencies": [
     "base",
     "? the-one-mod-with-underground-bits",
-    "? pipe-junctions",
+    "~ pipe-junctions",
     "? no-pipe-touching",
     "! flow-config",
     "! Flow Control"
