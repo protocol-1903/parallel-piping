@@ -286,8 +286,8 @@ local function on_destroyed(event)
   for _, neighbour in pairs(xu.get_pipe_neighoburs(entity)) do
     local mask = xu.bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
     local b2 = xu.base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
-    local bit = 2 ^ (xu.get_direction(neighbour.position, entity.position) / 4 % 4)
-    if bit32.btest(mask, bit) then
+    local bit = 2 ^ (xu.get_direction(neighbour.position, entity.position) / 4)
+    if bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
       mask = mask - bit
       -- LOSSY UNDO STACK CHECK
       local build_index, build_action = xu.find_build_item(stack, neighbour)
@@ -298,7 +298,7 @@ local function on_destroyed(event)
         local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
         fluid.amount = amount[fluid.name]
       end
-      local new_neighbour = surface.create_entity({
+      local new_neighbour = surface.create_entity{
         name = neighbour.name == "entity-ghost" and "entity-ghost" or xu.variations[b2][mask],
         ghost_name = neighbour.name == "entity-ghost" and xu.variations[b2][mask] or nil,
         position = neighbour.position,
@@ -306,8 +306,8 @@ local function on_destroyed(event)
         force = neighbour.force,
         player = build_index and player.index or nil,
         undo_index = build_index,
-        create_build_effect_smoke = false,
-      })
+        create_build_effect_smoke = false
+      }
       neighbour.destroy()
       if build_index then stack.remove_undo_action(build_index, build_action) end
       if health then new_neighbour.health = health end
@@ -322,6 +322,45 @@ script.on_event(defines.events.on_robot_mined_entity, on_destroyed)
 script.on_event(defines.events.on_space_platform_mined_entity, on_destroyed)
 script.on_event(defines.events.script_raised_destroy, on_destroyed)
 script.on_event(defines.events.on_entity_died, on_destroyed)
+
+script.on_event(defines.events.on_cancelled_deconstruction, function (event)
+    local entity = event.entity
+  local prototype = entity.name == "entity-ghost" and entity.ghost_prototype or entity.prototype
+  local base = xu.base_pipe[prototype.name]
+  if not base then return end
+  local mask = xu.bitmasks[prototype.name]
+  local new_mask = 0
+  local player = game.get_player(event.player_index)
+  local stack = player.undo_redo_stack
+  local surface = entity.surface
+  for _, neighbour in pairs(xu.get_pipe_neighoburs(entity)) do
+    new_mask = new_mask + 2 ^ (xu.get_direction(entity.position, neighbour.position) / 4)
+  end
+  if mask == new_mask then return end
+  -- something was removed, replace this entity
+  local build_index, build_action = xu.find_build_item(stack, entity)
+  local health = entity.health
+  local fluid = entity.fluidbox[1]
+  if fluid then
+    local amount = entity.fluidbox.get_fluid_segment_contents(1)
+    fluid.amount = amount[fluid.name]
+  end
+  local params = {
+    name = entity.name == "entity-ghost" and "entity-ghost" or xu.variations[base][mask],
+    ghost_name = entity.name == "entity-ghost" and xu.variations[base][mask] or nil,
+    position = entity.position,
+    quality = entity.quality,
+    force = entity.force,
+    player = build_index and player.index or nil,
+    undo_index = build_index,
+    create_build_effect_smoke = false
+  }
+  entity.destroy()
+  local new_entity = surface.create_entity(params)
+  if build_index then stack.remove_undo_action(build_index, build_action) end
+  if health then new_entity.health = health end
+  if fluid then new_entity.fluidbox[1] = fluid end
+end)
 
 script.on_event(defines.events.on_player_setup_blueprint, function (event)
 	local player = game.get_player(event.player_index)
