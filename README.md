@@ -1,25 +1,23 @@
 [![ko-fi](https://img.shields.io/badge/Ko--fi-Donate%20-hotpink?logo=kofi&logoColor=white&style=for-the-badge)](https://ko-fi.com/protocol1903) [![](https://img.shields.io/badge/dynamic/json?color=orange&label=Factorio&query=downloads_count&suffix=%20downloads&url=https%3A%2F%2Fmods.factorio.com%2Fapi%2Fmods%2Fparallel-piping&style=for-the-badge)](https://mods.factorio.com/mod/parallel-piping) [![](https://img.shields.io/badge/Discord-Community-blue?style=for-the-badge)](https://discord.gg/K3fXMGVc4z) [![](https://img.shields.io/badge/Github-Source-green?style=for-the-badge)](https://github.com/protocol-1903/parallel-piping)
 
-# What?
-Parallel Piping allows pipes carrying different fluids to run in parallel, without connecting.
+Even more control over pipes. With the same results as [Flow Control](https://mods.factorio.com/mod/Flow%20Control) and [Flow Configuration](https://mods.factorio.com/mod/flow-config), Parallel Piping allows pipes to be constructed in parallel, without connecting. By default, nothing is connected, not even machines. Create new connecitons by dragging a pipe between two entities.
 
-Prototyped by [_CodeGreen](https://mods.factorio.com/user/_CodeGreen)
+Pairs very well with lots of fluids... In fact, *very* well with mods that turn things into fluids...
 
-# Compatability
-Should be compatible with most mods that adds unique pipes, if something breaks, let me know.
+### Compatibility:
+- [Pipe Junctions](https://mods.factorio.com/mod/pipe-junctions): Fully compatible. A well-suited combination, allows you to (almost) build things like belts.
+- [Actual Underground Pipes](https://mods.factorio.com/mod/the-one-mod-with-underground-bits): Fully compatible. In fact, they work rather well together! I can highly recommend it!
+- [No Pipe Touching](https://mods.factorio.com/mod/no-pipe-touching): Fully compatible. NOTE: If used in conjunction with AUP, all underground pipes are forced to share the same layer.
 
-### Known compatibility:
-- Pymods
-- [RGB Pipes](https://mods.factorio.com/mod/RGBPipes)
-- [Color Coded Pipes](https://mods.factorio.com/mod/color-coded-pipes)
-- [Flow Control](https://mods.factorio.com/mod/Flow%20Control)
-- [Pipes Plus](https://mods.factorio.com/mod/pipe_plus)
-- [No Pipe Touching](https://mods.factorio.com/mod/no-pipe-touching)
-- [Actual Underground Pipes](https://mods.factorio.com/mod/the-one-mod-with-underground-bits)
+### Incompatibilities:
+- [Flow Control](https://mods.factorio.com/mod/Flow%20Control): This mod fully replaces flow control.
+- [Flow Configuration](https://mods.factorio.com/mod/flow-config): This mod fully replaces flow configuration.
 
-If you wish to add compatibility with a mod, talk to me on here or discord so we can sort it out.
+If you wish to add compatibility with a mod, talk to me on github or discord so we can sort it out.
 
 ## History
-This is a variation of No Pipe Touching, based on the original implementation of [Incompatible Pipes](https://mods.factorio.com/mod/incompatible-pipes) by sticklord. I thought of this a while back when rebuilding the mod, and it's stuck with me ever since. Glad to finally get it implemented.
+This is a variant of No Pipe Touching, based on the original implementation of [Incompatible Pipes](https://mods.factorio.com/mod/incompatible-pipes) by sticklord. I thought of this a while back when rebuilding the mod, and it's stuck with me ever since. Glad to finally get it implemented.
+
+Prototyped by [_CodeGreen](https://mods.factorio.com/user/_CodeGreen)
 
 If you have a mod idea, let me know and I can look into it.
