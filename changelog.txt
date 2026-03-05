@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.2
+Date: 2026-03-05
+  Changes:
+    - Removed unnecessary frozen sprites of tank variations since you can't get them in entity form
+  Bugfixes:
+    - Fixed a crash with planetslib regarding frozen patches (idk why but it doesnst happen anymore)
+---------------------------------------------------------------------------------------------------
 Version: 1.0.1
 Date: 2026-03-04
   Changes:

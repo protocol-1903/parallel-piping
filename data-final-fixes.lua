@@ -152,7 +152,7 @@ for p, prototype in pairs(data.raw.pipe) do
       tank.created_smoke = nil
       tank.window_bounding_box = {{0,0},{0,0}}
       tank.show_fluid_icon = false
-      tank.pictures = {}
+      tank.pictures = {picture = {}}
       tank.fluid_box.pipe_connections = {}
       tank.flow_length_in_ticks = 1
       tank.hidden = true
@@ -160,13 +160,9 @@ for p, prototype in pairs(data.raw.pipe) do
       for _, index in pairs(metadata.pipe_connections) do
         tank.fluid_box.pipe_connections[#tank.fluid_box.pipe_connections+1] = pipe_connections[index]
       end
-      for variation, alt in pairs{
-        picture = "",
-        frozen_patch = feature_flags.freezing and "_frozen" or nil,
-      } do for direction, index in pairs(metadata.pictures) do
-        tank.pictures[variation] = tank.pictures[variation] or {}
-        tank.pictures[variation][direction] = prototype.pictures[index .. alt]
-      end end
+      for direction, index in pairs(metadata.pictures) do
+        tank.pictures.picture[direction] = prototype.pictures[index]
+      end
       new_entities[#new_entities+1] = tank
       base_pipe[tank.name] = p
       variations[p][suffix] = tank.name
