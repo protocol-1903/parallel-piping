@@ -168,11 +168,13 @@ local function on_built(event)
       storage.previous[player.index] = new_entity
     end
   elseif base then
-    if player and player.cursor_stack and player.cursor_stack.valid_for_read then
-      player.cursor_stack.count = player.cursor_stack.count + 1
-    elseif player and event.consumed_items and player.cursor_stack and player.is_cursor_empty() then
-      -- just placed last item, put it back
-      player.cursor_stack.transfer_stack(event.consumed_items[1])
+    if entity.name ~= "entity-ghost" then
+      if player and player.cursor_stack and player.cursor_stack.valid_for_read then
+        player.cursor_stack.count = player.cursor_stack.count + 1
+      elseif player and event.consumed_items and player.cursor_stack and player.is_cursor_empty() then
+        -- just placed last item, put it back
+        player.cursor_stack.transfer_stack(event.consumed_items[1])
+      end
     end
     local params = {
       position = entity.position,
