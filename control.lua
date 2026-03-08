@@ -50,7 +50,7 @@ local function on_built(event)
 
   local surface = entity.surface
   local stack = player and player.undo_redo_stack
-  local blueprint = stack and #stack.get_undo_item(1) ~= 1
+  local blueprint = stack and stack.get_undo_item_count() > 0 and #stack.get_undo_item(1) ~= 1
   if base then
     if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
       local i = xu.find_build_action(stack.get_undo_item(1), entity)
@@ -280,7 +280,7 @@ local function on_destroyed(event)
   local player = event.player_index and game.get_player(event.player_index)
   local surface = entity.surface
   local stack = player and player.undo_redo_stack
-  local blueprint = stack and #stack.get_undo_item(1) ~= 1
+  local blueprint = stack and stack.get_undo_item_count() > 0 and #stack.get_undo_item(1) ~= 1
   if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
     local i = xu.find_build_action(stack.get_undo_item(1), entity)
     if i then stack.remove_undo_action(1, i) end
