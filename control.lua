@@ -117,7 +117,7 @@ local function on_built(event)
         local fluid = previous.fluidbox[1]
         if fluid then
           local amount = previous.fluidbox.get_fluid_segment_contents(1)
-          fluid.amount = amount[fluid.name]
+          fluid.amount = amount and amount[fluid.name] or fluid.amount
         end
         local new_prev = surface.create_entity{
           name = previous.name == "entity-ghost" and "entity-ghost" or xu.variations[xu.base_pipe[prev_prototype.name]][new_mask],
@@ -240,7 +240,7 @@ script.on_event(defines.events.on_pre_build, function(event)
       if entity and entity.fluidbox[1] then
         local fluid = entity.fluidbox[1]
         local amount = entity.fluidbox.get_fluid_segment_contents(1)
-        fluid.amount = amount[fluid.name]
+        fluid.amount = amount and amount[fluid.name] or fluid.amount
         storage.old_fluid[event.player_index] = fluid
       end
       entity.health = entity.max_health
@@ -252,7 +252,7 @@ script.on_event(defines.events.on_pre_build, function(event)
     local fluid = entity.fluidbox[1]
     if fluid then
       local amount = entity.fluidbox.get_fluid_segment_contents(1)
-      fluid.amount = amount[fluid.name]
+      fluid.amount = amount and amount[fluid.name] or fluid.amount
       storage.old_fluid[event.player_index] = fluid
     end
     entity.health = entity.max_health
@@ -298,7 +298,7 @@ local function on_destroyed(event)
       local fluid = neighbour.fluidbox[1]
       if fluid then
         local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
-        fluid.amount = amount[fluid.name]
+        fluid.amount = amount and amount[fluid.name] or fluid.amount
       end
       local new_neighbour = surface.create_entity{
         name = neighbour.name == "entity-ghost" and "entity-ghost" or xu.variations[b2][mask],
@@ -345,7 +345,7 @@ script.on_event(defines.events.on_cancelled_deconstruction, function (event)
   local fluid = entity.fluidbox[1]
   if fluid then
     local amount = entity.fluidbox.get_fluid_segment_contents(1)
-    fluid.amount = amount[fluid.name]
+    fluid.amount = amount and amount[fluid.name] or fluid.amount
   end
   local params = {
     name = entity.name == "entity-ghost" and "entity-ghost" or xu.variations[base][mask],

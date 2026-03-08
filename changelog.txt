@@ -4,6 +4,7 @@ Date: ????
   Compatibility:
     - Added compatibility with Editor Extensions. Resolves https://github.com/protocol-1903/parallel-piping/issues/9
   Bugfixes:
+    - Fixed a crash when indexing a fluid segment that did not expand beyond the target entity. Resolves https://github.com/protocol-1903/parallel-piping/issues/14
     - Fixed a crash when doing things on brand new saves. Resolves https://github.com/protocol-1903/parallel-piping/issues/10
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.3
