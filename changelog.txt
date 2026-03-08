@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.4
+Date: ????
+  Compatibility:
+    - Added compatibility with Editor Extensions. Resolves https://github.com/protocol-1903/parallel-piping/issues/9
+---------------------------------------------------------------------------------------------------
 Version: 1.0.3
 Date: 2026-03-05
   Bugfixes:

@@ -1,6 +1,8 @@
 local base_pipe, variations, bitmasks = {}, {}, {}
 
-local blacklist = {}
+local blacklist = {
+  ["ee-linked-pipe"] = true
+}
 
 --[[
 NORTH VERSIONS:
