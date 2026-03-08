@@ -15,6 +15,9 @@ Pairs very well with lots of fluids... In fact, *very* well with mods that turn 
 
 If you wish to add compatibility with a mod, talk to me on github or discord so we can sort it out.
 
+## Uninstallation
+This mod changes pipe entities in-world. This means that, when removed, all existing pipes will be destroyed. Please send me a DM on discord if you want a migration package, I have to generate those per-save. This is not possible to fix in the mod.
+
 ## History
 This is a variant of No Pipe Touching, based on the original implementation of [Incompatible Pipes](https://mods.factorio.com/mod/incompatible-pipes) by sticklord. I thought of this a while back when rebuilding the mod, and it's stuck with me ever since. Glad to finally get it implemented.
 
