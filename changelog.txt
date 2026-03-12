@@ -2,7 +2,7 @@
 Version: 1.0.4
 Date: ????
   Changes:
-    - Updated pipe connection checks to use 
+    - Updated pipe connection checks to use connection category per-connection instead of per-prototype
   Compatibility:
     - Added compatibility with Editor Extensions. Resolves https://github.com/protocol-1903/parallel-piping/issues/9
   Bugfixes:
