@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.4
-Date: ????
+Date: 2026-03-11
   Changes:
     - Updated pipe connection checks to use connection category per-connection instead of per-prototype
   Compatibility:
