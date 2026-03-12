@@ -85,14 +85,15 @@ local function on_built(event)
   if not player then return end
 
   local existing = player and storage.existing_connections[player.index]
-  local variation = existing and xu.bitmasks[existing] or xu.bitmasks[prototype.name] or 0
+  local variation = existing and xu.bitmasks[existing] or 0
   if player then
     storage.existing_connections[player.index] = nil
   end
 
   local can_place = base and surface.can_place_entity{name = xu.variations[base][0], position = entity.position, force = entity.force}
+  local ignore = not not xu.bitmasks[prototype.name] -- cancel if this is already a variation
 
-  if previous and previous.valid then
+  if previous and previous.valid and not ignore then
     local prev_prototype = previous.name == "entity-ghost" and previous.ghost_prototype or previous.prototype
     if xu.base_pipe[prev_prototype.name] then
       local prev_variation = 2 ^ (xu.get_direction(previous.position, entity.position) / 4)
@@ -143,7 +144,7 @@ local function on_built(event)
     end
   end
 
-  if can_place then
+  if can_place and not ignore then
     local health = player and storage.old_health[player.index] or entity.health
     local fluid = player and storage.old_fluid[player.index]
     local new_name = xu.variations[base][variation]
@@ -166,7 +167,7 @@ local function on_built(event)
     if player then
       storage.previous[player.index] = new_entity
     end
-  elseif base then
+  elseif base and not ignore then
     if entity.name ~= "entity-ghost" then
       if player and player.cursor_stack and player.cursor_stack.valid_for_read then
         player.cursor_stack.count = player.cursor_stack.count + 1
