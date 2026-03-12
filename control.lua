@@ -111,7 +111,6 @@ local function on_built(event)
       local dist = (math.ceil(xu.get_size(prototype)) + math.ceil(xu.get_size(prev_prototype))) / 2
       if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= xu.bitmasks[prev_prototype.name] then
         variation = bit32.bor(variation, 2 ^ (xu.get_direction(entity.position, previous.position) / 4))
-        -- LOSSY UNDO STACK CHECK
         local build_index, build_action = xu.find_build_item(stack, previous)
         local health = previous.health
         local fluid = previous.fluidbox[1]
@@ -209,10 +208,6 @@ script.on_event(defines.events.on_pre_build, function(event)
   local place_result = player.cursor_ghost and player.cursor_ghost.name.place_result or
     player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
   if not place_result or place_result.type ~= "pipe" then return end
-  -- populate if nonexistant
-  for category in pairs(xu.get_categories(place_result.name)) do
-    xu.update_connectables(category)
-  end
   local position = event.position
   local mask = prototypes.entity[xu.variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
   local entity = player.surface.find_entities_filtered{
@@ -291,7 +286,6 @@ local function on_destroyed(event)
     local bit = 2 ^ (xu.get_direction(neighbour.position, entity.position) / 4)
     if bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
       mask = mask - bit
-      -- LOSSY UNDO STACK CHECK
       local build_index, build_action = xu.find_build_item(stack, neighbour)
       local health = neighbour.health
       local marked = neighbour.to_be_deconstructed()

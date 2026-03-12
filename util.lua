@@ -54,31 +54,18 @@ xu.get_pipe_neighoburs = function(entity)
         entity.position.x + o1.x + o2.x,
         entity.position.y + o1.y + o2.y
       }
-      -- populate if nonexistant
-      for category in pairs(xu.get_categories(prototype.name)) do
-        xu.update_connectables(category)
-      end
       ---@type LuaEntity
-      local neighbour
-      for _, e in pairs(surface.find_entities_filtered{type = "pipe", position = position, force = force}) do
-        for category in pairs(xu.get_categories(prototype.name)) do
-          if xu.connectables[category][xu.base_pipe[e.name]] then
-            neighbour = e
-            break
-          end
-        end
-      end
-      if not neighbour then
-        for _, e in pairs(surface.find_entities_filtered{ghost_type = "pipe", position = position, force = force}) do
-          for category in pairs(xu.get_categories(prototype.name)) do
-            if xu.connectables[category][xu.base_pipe[e.ghost_name]] then
-              neighbour = e
-              break
+      for _, type in pairs{"type", "ghost_type"} do
+        for _, e in pairs(surface.find_entities_filtered{[type] = "pipe", position = position, force = force}) do
+          for _, category in pairs(pipe_connection.connection_category) do
+            xu.update_connectables(category)
+            if xu.connectables[category][xu.base_pipe[e.name == "entity-ghost" and e.ghost_name or e.name]] then
+              neighbours[#neighbours+1] = e
+              goto continue
             end
           end
         end
       end
-      neighbours[#neighbours+1] = neighbour
       ::continue::
     end
   end
