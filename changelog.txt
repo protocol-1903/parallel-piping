@@ -6,6 +6,7 @@ Date: ????
   Compatibility:
     - Added compatibility with Editor Extensions. Resolves https://github.com/protocol-1903/parallel-piping/issues/9
   Bugfixes:
+    - Fixed valve fast replaceable group not being overridden
     - Fixed errors with actual underground pipes migrations when underground and normal pipes existed on the same tile. Resolves https://github.com/protocol-1903/parallel-piping/issues/15
     - Fixed a crash when indexing a fluid segment that did not expand beyond the target entity. Resolves https://github.com/protocol-1903/parallel-piping/issues/14
     - Fixed a crash when doing things on brand new saves. Resolves https://github.com/protocol-1903/parallel-piping/issues/10

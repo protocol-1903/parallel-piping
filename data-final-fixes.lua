@@ -54,6 +54,10 @@ for _, prototype in pairs(data.raw["pipe-to-ground"]) do
   prototype.fast_replaceable_group = nil
 end
 
+for _, prototype in pairs(data.raw.valve) do
+  prototype.fast_replaceable_group = nil
+end
+
 for _, prototype in pairs(data.raw["infinity-pipe"]) do
   prototype.fast_replaceable_group = nil
 end
