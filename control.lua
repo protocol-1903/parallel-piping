@@ -85,7 +85,7 @@ local function on_built(event)
   if not player then return end
 
   local existing = player and storage.existing_connections[player.index]
-  local variation = existing and xu.bitmasks[existing] or 0
+  local variation = existing and xu.bitmasks[existing] or xu.bitmasks[prototype.name] or 0
   if player then
     storage.existing_connections[player.index] = nil
   end
