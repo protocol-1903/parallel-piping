@@ -50,24 +50,12 @@ for p, prototype in pairs(data.raw.pipe) do
   end
 end
 
-for _, prototype in pairs(data.raw["pipe-to-ground"]) do
-  prototype.fast_replaceable_group = nil
-end
-
-for _, prototype in pairs(data.raw.valve) do
-  prototype.fast_replaceable_group = nil
-end
-
-for _, prototype in pairs(data.raw["infinity-pipe"]) do
-  prototype.fast_replaceable_group = nil
-end
-
 local new_entities = {}
 
 for p, prototype in pairs(data.raw.pipe) do
   if variations[p] then
     prototype.placeable_by = prototype.placeable_by or {item = p, count = 1}
-    prototype.fast_replaceable_group = p
+    prototype.fast_replaceable_group = "pp-" .. p
     local pipe_connections = prototype.fluid_box.pipe_connections
     prototype.fluid_box.pipe_connections = {}
     -- create variations for in-world manipulation

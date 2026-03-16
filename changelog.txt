@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.5
+Date: 2026-03-15
+  Changes:
+    - Updated fast-replaceable group to use new groups instead of reusing old ones. Should fix more mod compatibility. Resolves https://github.com/protocol-1903/parallel-piping/issues/16
+---------------------------------------------------------------------------------------------------
 Version: 1.0.4
 Date: 2026-03-11
   Changes:
