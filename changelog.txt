@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.6
+Date: 2026-03-16
+  Bugfixes:
+    - Fixed a migrations crash when indexing a single-entity fluid segment with a contained fluid. Resolves https://github.com/protocol-1903/parallel-piping/issues/17
+---------------------------------------------------------------------------------------------------
 Version: 1.0.5
 Date: 2026-03-15
   Changes:

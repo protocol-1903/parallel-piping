@@ -46,7 +46,7 @@ for _, surface in pairs(game.surfaces) do
         local fluid = entity.fluidbox[1]
         if fluid then
           local amount = entity.fluidbox.get_fluid_segment_contents(1)
-          fluid.amount = amount[fluid.name]
+          fluid.amount = amount and amount[fluid.name] or fluid.amount
         end
         local params = {
           name = entity.name == "entity-ghost" and "entity-ghost" or xu.variations[base][mask],
