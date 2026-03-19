@@ -23,4 +23,5 @@ This is a variant of No Pipe Touching, based on the original implementation of [
 
 Prototyped by [_CodeGreen](https://mods.factorio.com/user/_CodeGreen)
 
+My mods are made 100% by humans, with no computer generated code or graphics.
 If you have a mod idea, let me know and I can look into it.

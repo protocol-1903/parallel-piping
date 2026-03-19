@@ -4,7 +4,8 @@
   "title": "Parallel Piping",
   "description": "Allows you to easily construct pipes running in parallel, without connecting. Designed as a less fancy alternative to Flow Configuration, without the inventory complexity of Flow Control.",
   "author": "protocol_1903",
-  "homepage": "https://discord.gg/K3fXMGVc4z",
+  "contact": "https://discord.gg/K3fXMGVc4z",
+  "homepage": "https://github.com/protocol-1903/parallel-piping",
   "factorio_version": "2.0",
   "dependencies": [
     "base",
