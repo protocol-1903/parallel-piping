@@ -1,9 +1,96 @@
-require "util"
+require "__perel__.util.scripts.general"
+require "__perel__.util.scripts.fluids"
+
+local mod_data = assert(prototypes.mod_data["parallel-piping"], "ERROR: mod-data for parallel-piping not found!")
+local base_pipe = assert(mod_data.data.base_pipe, "ERROR: data.base_pipe for parallel-piping not found!")
+local variations = assert(mod_data.data.variations, "ERROR: data.variations for parallel-piping not found!")
+local bitmasks = assert(mod_data.data.bitmasks, "ERROR: data.bitmasks for parallel-piping not found!")
 
 local event_filter = {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}, {filter = "type", type = "storage-tank"}, {filter = "ghost_type", type = "storage-tank"}}
 
+local categories = {}
+local function get_categories(entity)
+  local base = base_pipe[entity] and variations[base_pipe[entity]][1] or entity
+  if categories[base] then return categories[base] end
+  local prototype = prototypes.entity[base]
+  if not prototype.fluidbox_prototypes[1] then return {} end
+  categories[base] = {}
+  for _, pipe_connection in pairs(prototype.fluidbox_prototypes[1].pipe_connections) do
+    for _, category in pairs(pipe_connection.connection_category) do
+      categories[base][category] = true
+    end
+  end
+  return categories[base]
+end
+
+local connectables = {}
+local function update_connectables(category)
+  if connectables[category] then return end
+  connectables[category] = {}
+  for pipe in pairs(variations) do
+    connectables[category][pipe] = get_categories(pipe)[category]
+  end
+end
+
+local tank_to_pipe = {
+  nothingburger = {
+    [0] = 0,
+    [4] = 0,
+    [8] = 0,
+    [12] = 0
+  },
+  ending = {
+    [0] = 4,
+    [4] = 8,
+    [8] = 1,
+    [12] = 2
+  },
+  straight = {
+    [0] = 5,
+    [4] = 10,
+    [8] = 5,
+    [12] = 10
+  },
+  junction = {
+    [0] = 14,
+    [4] = 13,
+    [8] = 11,
+    [12] = 7
+  },
+  corner = {
+    [0] = 6,
+    [4] = 12,
+    [8] = 9,
+    [12] = 3
+  },
+  cross = {
+    [0] = 15,
+    [4] = 15,
+    [8] = 15,
+    [12] = 15
+  }
+}
+local pipe_to_tank = {
+  [0] = {mask = "nothingburger"},
+  {mask = "ending", direction = defines.direction.south},
+  {mask = "ending", direction = defines.direction.west},
+  {mask = "corner", direction = defines.direction.west},
+  {mask = "ending", direction = defines.direction.north},
+  {mask = "straight", direction = defines.direction.north},
+  {mask = "corner", direction = defines.direction.north},
+  {mask = "junction", direction = defines.direction.west},
+  {mask = "ending", direction = defines.direction.east},
+  {mask = "corner", direction = defines.direction.south},
+  {mask = "straight", direction = defines.direction.east},
+  {mask = "junction", direction = defines.direction.south},
+  {mask = "corner", direction = defines.direction.east},
+  {mask = "junction", direction = defines.direction.east},
+  {mask = "junction", direction = defines.direction.north},
+  {mask = "cross"},
+}
+
 -- transform "0" to 0 etc
-for index, set in pairs(xu.variations) do
+for index, set in pairs(variations) do
   local new_set = {}
   for mask, entity in pairs(set) do
     if tonumber(mask) then
@@ -12,7 +99,7 @@ for index, set in pairs(xu.variations) do
       new_set[mask] = entity
     end
   end
-  xu.variations[index] = new_set
+  variations[index] = new_set
 end
 
 script.on_init(function()
@@ -46,21 +133,21 @@ local function on_built(event)
   end
   local prototype = entity.name == "entity-ghost" and entity.ghost_prototype or entity.prototype
   local name = prototype.name
-  local base = xu.base_pipe[name]
+  local base = base_pipe[name]
 
   local surface = entity.surface
   local stack = player and player.undo_redo_stack
   local blueprint = stack and stack.get_undo_item_count() > 0 and #stack.get_undo_item(1) ~= 1
   if base then
     if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
-      local i = xu.find_build_action(stack.get_undo_item(1), entity)
+      local i = perel.find_build_action(stack.get_undo_item(1), entity)
       if i then stack.remove_undo_action(1, i) end
     end
 
     -- just placed a blueprint, convert to normal
     if entity.type == "entity-ghost" and entity.ghost_type == "storage-tank" or entity.type == "storage-tank" then
-      local mask = xu.tank_to_pipe[xu.bitmasks[name]][entity.direction]
-      local new_name = xu.variations[xu.base_pipe[name]][mask]
+      local mask = tank_to_pipe[bitmasks[name]][entity.direction]
+      local new_name = variations[base_pipe[name]][mask]
       local new_entity = surface.create_entity{
         name = entity.name == "entity-ghost" and "entity-ghost" or new_name,
         ghost_name = entity.name == "entity-ghost" and new_name or nil,
@@ -85,34 +172,34 @@ local function on_built(event)
   if not player then return end
 
   local existing = player and storage.existing_connections[player.index]
-  local variation = existing and xu.bitmasks[existing] or 0
+  local variation = existing and bitmasks[existing] or 0
   if player then
     storage.existing_connections[player.index] = nil
   end
 
-  local can_place = base and surface.can_place_entity{name = xu.variations[base][0], position = entity.position, force = entity.force}
-  local ignore = not not xu.bitmasks[prototype.name] -- cancel if this is already a variation
+  local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
+  local ignore = not not bitmasks[prototype.name] -- cancel if this is already a variation
 
   if previous and previous.valid and not ignore then
     local prev_prototype = previous.name == "entity-ghost" and previous.ghost_prototype or previous.prototype
-    if xu.base_pipe[prev_prototype.name] then
-      local prev_variation = 2 ^ (xu.get_direction(previous.position, entity.position) / 4)
-      local new_mask = bit32.bor(xu.bitmasks[prev_prototype.name], prev_variation)
-      local connect = xu.base_pipe[existing or name] == xu.base_pipe[prev_prototype.name] or existing == ""
+    if base_pipe[prev_prototype.name] then
+      local prev_variation = 2 ^ (perel.get_direction(previous.position, entity.position) / 4)
+      local new_mask = bit32.bor(bitmasks[prev_prototype.name], prev_variation)
+      local connect = base_pipe[existing or name] == base_pipe[prev_prototype.name] or existing == ""
       local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
-        for category in pairs(xu.get_categories(base and xu.base_pipe[existing or name] or name)) do
-          xu.update_connectables(category)
-          if xu.connectables[category][xu.base_pipe[prev_prototype.name]] then
+        for category in pairs(get_categories(base and base_pipe[existing or name] or name)) do
+          update_connectables(category)
+          if connectables[category][base_pipe[prev_prototype.name]] then
             connect = true
             break
           end
         end
       end
-      local dist = (math.ceil(xu.get_size(prototype)) + math.ceil(xu.get_size(prev_prototype))) / 2
-      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= xu.bitmasks[prev_prototype.name] then
-        variation = bit32.bor(variation, 2 ^ (xu.get_direction(entity.position, previous.position) / 4))
-        local build_index, build_action = xu.find_build_item(stack, previous)
+      local dist = (math.ceil(perel.get_side_length(prototype)) + math.ceil(perel.get_side_length(prev_prototype))) / 2
+      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= bitmasks[prev_prototype.name] then
+        variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
+        local build_index, build_action = perel.find_build_item(stack, previous)
         local health = previous.health
         local fluid = previous.fluidbox[1]
         if fluid then
@@ -120,8 +207,8 @@ local function on_built(event)
           fluid.amount = amount and amount[fluid.name] or fluid.amount
         end
         local new_prev = surface.create_entity{
-          name = previous.name == "entity-ghost" and "entity-ghost" or xu.variations[xu.base_pipe[prev_prototype.name]][new_mask],
-          ghost_name = previous.name == "entity-ghost" and xu.variations[xu.base_pipe[prev_prototype.name]][new_mask] or nil,
+          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_prototype.name]][new_mask],
+          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_prototype.name]][new_mask] or nil,
           position = previous.position,
           quality = previous.quality,
           force = previous.force,
@@ -135,9 +222,9 @@ local function on_built(event)
         if fluid then new_prev.fluidbox[1] = fluid end
       end
     else -- not a pipe, connect generically if allowed
-      for _, neighbour in pairs(xu.get_pipe_neighoburs(previous)) do
+      for _, neighbour in pairs(perel.get_fluidbox_neighoburs(previous)) do
         if neighbour.unit_number == entity.unit_number then
-          variation = bit32.bor(variation, 2 ^ (xu.get_direction(entity.position, previous.position) / 4))
+          variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
           break
         end
       end
@@ -147,7 +234,7 @@ local function on_built(event)
   if can_place and not ignore then
     local health = player and storage.old_health[player.index] or entity.health
     local fluid = player and storage.old_fluid[player.index]
-    local new_name = xu.variations[base][variation]
+    local new_name = variations[base][variation]
     if player then
       storage.old_health[player.index] = nil
     end
@@ -179,7 +266,7 @@ local function on_built(event)
     local params = {
       position = entity.position,
       force = entity.force,
-      collision_mask = prototypes.entity[xu.variations[base][variation]].collision_mask.layers,
+      collision_mask = prototypes.entity[variations[base][variation]].collision_mask.layers,
       limit = 1
     }
     entity.destroy()
@@ -210,7 +297,7 @@ script.on_event(defines.events.on_pre_build, function(event)
     player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
   if not place_result or place_result.type ~= "pipe" then return end
   local position = event.position
-  local mask = prototypes.entity[xu.variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
+  local mask = prototypes.entity[variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
   local entity = player.surface.find_entities_filtered{
     type = "pipe",
     position = position,
@@ -254,7 +341,7 @@ script.on_event(defines.events.on_pre_build, function(event)
     entity.health = entity.max_health
     local event_data = event
     event.entity = entity.surface.create_entity{
-      name = xu.base_pipe[entity.name],
+      name = base_pipe[entity.name],
       position = entity.position,
       quality = entity.quality,
       force = entity.force,
@@ -278,16 +365,16 @@ local function on_destroyed(event)
   local stack = player and player.undo_redo_stack
   local blueprint = stack and stack.get_undo_item_count() > 0 and #stack.get_undo_item(1) ~= 1
   if blueprint then -- multiple items (blueprint or otherwise) do complicated checks
-    local i = xu.find_build_action(stack.get_undo_item(1), entity)
+    local i = perel.find_build_action(stack.get_undo_item(1), entity)
     if i then stack.remove_undo_action(1, i) end
   end
-  for _, neighbour in pairs(xu.get_pipe_neighoburs(entity)) do
-    local mask = xu.bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
-    local b2 = xu.base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
-    local bit = 2 ^ (xu.get_direction(neighbour.position, entity.position) / 4)
+  for _, neighbour in pairs(perel.get_fluidbox_neighoburs(entity)) do
+    local mask = bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+    local b2 = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+    local bit = 2 ^ (perel.get_direction(neighbour.position, entity.position) / 4)
     if bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
       mask = mask - bit
-      local build_index, build_action = xu.find_build_item(stack, neighbour)
+      local build_index, build_action = perel.find_build_item(stack, neighbour)
       local health = neighbour.health
       local marked = neighbour.to_be_deconstructed()
       local fluid = neighbour.fluidbox[1]
@@ -296,8 +383,8 @@ local function on_destroyed(event)
         fluid.amount = amount and amount[fluid.name] or fluid.amount
       end
       local new_neighbour = surface.create_entity{
-        name = neighbour.name == "entity-ghost" and "entity-ghost" or xu.variations[b2][mask],
-        ghost_name = neighbour.name == "entity-ghost" and xu.variations[b2][mask] or nil,
+        name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[b2][mask],
+        ghost_name = neighbour.name == "entity-ghost" and variations[b2][mask] or nil,
         position = neighbour.position,
         quality = neighbour.quality,
         force = neighbour.force,
@@ -323,19 +410,19 @@ script.on_event(defines.events.on_entity_died, on_destroyed)
 script.on_event(defines.events.on_cancelled_deconstruction, function (event)
     local entity = event.entity
   local prototype = entity.name == "entity-ghost" and entity.ghost_prototype or entity.prototype
-  local base = xu.base_pipe[prototype.name]
+  local base = base_pipe[prototype.name]
   if not base then return end
-  local mask = xu.bitmasks[prototype.name]
+  local mask = bitmasks[prototype.name]
   local new_mask = 0
   local player = game.get_player(event.player_index)
   local stack = player.undo_redo_stack
   local surface = entity.surface
-  for _, neighbour in pairs(xu.get_pipe_neighoburs(entity)) do
-    new_mask = new_mask + 2 ^ (xu.get_direction(entity.position, neighbour.position) / 4)
+  for _, neighbour in pairs(perel.get_fluidbox_neighoburs(entity)) do
+    new_mask = new_mask + 2 ^ (perel.get_direction(entity.position, neighbour.position) / 4)
   end
   if mask == new_mask then return end
   -- something was removed, replace this entity
-  local build_index, build_action = xu.find_build_item(stack, entity)
+  local build_index, build_action = perel.find_build_item(stack, entity)
   local health = entity.health
   local fluid = entity.fluidbox[1]
   if fluid then
@@ -343,8 +430,8 @@ script.on_event(defines.events.on_cancelled_deconstruction, function (event)
     fluid.amount = amount and amount[fluid.name] or fluid.amount
   end
   local params = {
-    name = entity.name == "entity-ghost" and "entity-ghost" or xu.variations[base][mask],
-    ghost_name = entity.name == "entity-ghost" and xu.variations[base][mask] or nil,
+    name = entity.name == "entity-ghost" and "entity-ghost" or variations[base][mask],
+    ghost_name = entity.name == "entity-ghost" and variations[base][mask] or nil,
     position = entity.position,
     quality = entity.quality,
     force = entity.force,
@@ -370,10 +457,10 @@ script.on_event(defines.events.on_player_setup_blueprint, function (event)
   local changed = false
   -- update entities
   for _, entity in pairs(entities) do
-    if xu.base_pipe[entity.name] then
+    if base_pipe[entity.name] then
       changed = true
-      local variation = xu.pipe_to_tank[xu.bitmasks[entity.name]]
-      entity.name = xu.variations[xu.base_pipe[entity.name]][variation.mask]
+      local variation = pipe_to_tank[bitmasks[entity.name]]
+      entity.name = variations[base_pipe[entity.name]][variation.mask]
       entity.direction = variation.direction
     end
   end
