@@ -3,6 +3,7 @@ Version: 1.0.8
 Date: 2026-04-06
   Bugfixes:
     - Fixed that pipes could not be connected by placing a pipe on an entity then placing one adjacent to a fluid port
+    - Fixed a crash when next_upgrade was set on pipes. Resolves https://github.com/protocol-1903/parallel-piping/issues/21
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.7
 Date: 2026-04-04

@@ -56,6 +56,7 @@ for p, prototype in pairs(data.raw.pipe) do
   if variations[p] then
     prototype.placeable_by = prototype.placeable_by or {item = p, count = 1}
     prototype.fast_replaceable_group = "pp-" .. p
+    prototype.next_upgrade = nil
     local pipe_connections = prototype.fluid_box.pipe_connections
     prototype.fluid_box.pipe_connections = {}
     -- create variations for in-world manipulation
