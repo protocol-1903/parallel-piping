@@ -128,6 +128,7 @@ local function on_built(event)
   local player = event.player_index and game.get_player(event.player_index)
   local entity = event.entity
   local previous = player and storage.previous[player.index]
+  local prev_name = previous and previous.valid and (previous.name == "entity-ghost" and previous.ghost_name or previous.name)
   if player then
     storage.previous[player.index] = entity
   end
@@ -180,24 +181,23 @@ local function on_built(event)
   local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
   local ignore = not not bitmasks[prototype.name] -- cancel if this is already a variation
 
-  if previous and previous.valid and not ignore then
-    local prev_prototype = previous.name == "entity-ghost" and previous.ghost_prototype or previous.prototype
-    if base_pipe[prev_prototype.name] then
+  if prev_name and not ignore then
+    if base_pipe[prev_name] then
       local prev_variation = 2 ^ (perel.get_direction(previous.position, entity.position) / 4)
-      local new_mask = bit32.bor(bitmasks[prev_prototype.name], prev_variation)
-      local connect = base_pipe[existing or name] == base_pipe[prev_prototype.name] or existing == ""
+      local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
+      local connect = base_pipe[existing or name] == base_pipe[prev_name] or existing == ""
       local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
         for category in pairs(get_categories(base and base_pipe[existing or name] or name)) do
           update_connectables(category)
-          if connectables[category][base_pipe[prev_prototype.name]] then
+          if connectables[category][base_pipe[prev_name]] then
             connect = true
             break
           end
         end
       end
-      local dist = (math.ceil(perel.get_side_length(prototype)) + math.ceil(perel.get_side_length(prev_prototype))) / 2
-      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= bitmasks[prev_prototype.name] then
+      local dist = (math.ceil(perel.get_side_length(prototype)) + math.ceil(perel.get_side_length(prototypes.entity[prev_name]))) / 2
+      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= bitmasks[prev_name] then
         variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
         local build_index, build_action = perel.find_build_item(stack, previous)
         local health = previous.health
@@ -207,8 +207,8 @@ local function on_built(event)
           fluid.amount = amount and amount[fluid.name] or fluid.amount
         end
         local new_prev = surface.create_entity{
-          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_prototype.name]][new_mask],
-          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_prototype.name]][new_mask] or nil,
+          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
+          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]][new_mask] or nil,
           position = previous.position,
           quality = previous.quality,
           force = previous.force,
@@ -222,11 +222,16 @@ local function on_built(event)
         if fluid then new_prev.fluidbox[1] = fluid end
       end
     else -- not a pipe, connect generically if allowed
-      for _, neighbour in pairs(perel.get_fluidbox_neighoburs(previous)) do
-        if neighbour.unit_number == entity.unit_number then
-          variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
-          break
+      local found = false
+      for i = 1, #previous.fluidbox do
+        for _, connection in pairs(previous.fluidbox.get_pipe_connections(i)) do
+          if connection.target_position.x == entity.position.x and connection.target_position.y == entity.position.y then
+            variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
+            found = true
+            break
+          end
         end
+        if found then break end
       end
     end
   end
@@ -372,7 +377,7 @@ local function on_destroyed(event)
     local mask = bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
     local b2 = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
     local bit = 2 ^ (perel.get_direction(neighbour.position, entity.position) / 4)
-    if bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
+    if mask and b2 and bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
       mask = mask - bit
       local build_index, build_action = perel.find_build_item(stack, neighbour)
       local health = neighbour.health
