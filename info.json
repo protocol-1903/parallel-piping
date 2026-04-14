@@ -1,6 +1,6 @@
 {
   "name": "parallel-piping",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "title": "Parallel Piping",
   "description": "Allows you to easily construct pipes running in parallel, without connecting. Designed as a less fancy alternative to Flow Configuration, without the inventory complexity of Flow Control.",
   "author": "protocol_1903",

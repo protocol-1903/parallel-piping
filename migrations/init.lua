@@ -5,6 +5,19 @@ local mod_data = assert(prototypes.mod_data["parallel-piping"], "ERROR: mod-data
 local base_pipe = assert(mod_data.data.base_pipe, "ERROR: data.base_pipe for parallel-piping not found!")
 local variations = assert(mod_data.data.variations, "ERROR: data.variations for parallel-piping not found!")
 
+-- transform "0" to 0 etc
+for index, set in pairs(variations) do
+  local new_set = {}
+  for mask, entity in pairs(set) do
+    if tonumber(mask) then
+      new_set[tonumber(mask)] = entity
+    else
+      new_set[mask] = entity
+    end
+  end
+  variations[index] = new_set
+end
+
 for _, surface in pairs(game.surfaces) do
   for _, type in pairs{"ghost_type", "type"} do
     for _, entity in pairs(surface.find_entities_filtered{[type] = "pipe"}) do
