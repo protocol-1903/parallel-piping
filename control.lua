@@ -180,6 +180,7 @@ local function on_built(event)
 
   local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
   local ignore = not not bitmasks[prototype.name] -- cancel if this is already a variation
+  local additional_fluid
 
   if prev_name and not ignore then
     if base_pipe[prev_name] then
@@ -205,6 +206,7 @@ local function on_built(event)
         if fluid then
           local amount = previous.fluidbox.get_fluid_segment_contents(1)
           fluid.amount = amount and amount[fluid.name] or fluid.amount
+          additional_fluid = fluid
         end
         local new_prev = surface.create_entity{
           name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],

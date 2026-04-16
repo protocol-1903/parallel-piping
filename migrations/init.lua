@@ -31,18 +31,25 @@ for _, surface in pairs(game.surfaces) do
           local amount = entity.fluidbox.get_fluid_segment_contents(1)
           fluid.amount = amount and amount[fluid.name] or fluid.amount
         end
-        entities[#entities+1] = {
-          entity = entity.surface.create_entity{
-            name = entity.name == "entity-ghost" and "entity-ghost" or variations[base][15],
-            ghost_name = entity.name == "entity-ghost" and variations[base][15] or nil,
-            position = entity.position,
-            quality = entity.quality
-          },
-          health = entity.health,
-          marked = entity.to_be_deconstructed(),
-          fluid = fluid
+        local params = {
+          name = entity.name == "entity-ghost" and "entity-ghost" or variations[base][15],
+          ghost_name = entity.name == "entity-ghost" and variations[base][15] or nil,
+          position = entity.position,
+          quality = entity.quality
         }
+        entities[#entities+1] = {
+          health = entity.health,
+          marked = entity.to_be_deconstructed()
+        }
+        entity.fluidbox[1] = nil
         entity.destroy()
+        local new_entity = surface.create_entity(params)
+        if fluid then
+          local amount = new_entity.fluidbox.get_fluid_segment_contents(1)
+          fluid.amount = fluid.amount + (amount and amount[fluid.name] or 0)
+        end
+        new_entity.fluidbox[1] = fluid
+        entities[#entities].entity = new_entity
       end
     end
   end
@@ -51,7 +58,12 @@ end
 for _, tuple in pairs(entities) do
   local entity = tuple.entity
   local health = tuple.health
-  local fluid = tuple.fluid
+  local fluid = entity.fluidbox[1]
+  if fluid then
+    local amount = entity.fluidbox.get_fluid_segment_contents(1)
+    fluid.amount = amount and amount[fluid.name] or fluid.amount
+  end
+  entity.fluidbox[1] = nil
   local marked = tuple.marked
   local surface = entity.surface
   local base = base_pipe[entity.name == "entity-ghost" and entity.ghost_name or entity.name]
