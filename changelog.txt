@@ -3,6 +3,9 @@ Version: 1.0.10
 Date: ???
   Bugfixes:
     - Fixed that migrations left pipes unconnected
+    - Fixed that you could delete fluid in a network by connecting a pipe to it. Resolves https://github.com/protocol-1903/parallel-piping/issues/23
+    - Fixed that you could delete a fluid by connecting a different fluid network to it
+    - Fixed an edge case where you could duplicate fluids
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.9
 Date: 2026-04-14

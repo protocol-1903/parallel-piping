@@ -180,7 +180,7 @@ local function on_built(event)
 
   local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
   local ignore = not not bitmasks[prototype.name] -- cancel if this is already a variation
-  local additional_fluid
+  local other_fluid
 
   if prev_name and not ignore then
     if base_pipe[prev_name] then
@@ -202,11 +202,10 @@ local function on_built(event)
         variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
         local build_index, build_action = perel.find_build_item(stack, previous)
         local health = previous.health
-        local fluid = previous.fluidbox[1]
-        if fluid then
+        other_fluid = previous.fluidbox[1]
+        if other_fluid then
           local amount = previous.fluidbox.get_fluid_segment_contents(1)
-          fluid.amount = amount and amount[fluid.name] or fluid.amount
-          additional_fluid = fluid
+          other_fluid.amount = amount and amount[other_fluid.name] or other_fluid.amount
         end
         local new_prev = surface.create_entity{
           name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
@@ -221,7 +220,7 @@ local function on_built(event)
         previous.destroy()
         if build_index then stack.remove_undo_action(build_index, build_action) end
         if health then new_prev.health = health end
-        if fluid then new_prev.fluidbox[1] = fluid end
+        if other_fluid then new_prev.fluidbox[1] = other_fluid end
       end
     else -- not a pipe, connect generically if allowed
       local found = false
@@ -241,6 +240,9 @@ local function on_built(event)
   if can_place and not ignore then
     local health = player and storage.old_health[player.index] or entity.health
     local fluid = player and storage.old_fluid[player.index]
+    if fluid then
+      fluid.amount = fluid.amount + (other_fluid and other_fluid.amount or 0)
+    end
     local new_name = variations[base][variation]
     if player then
       storage.old_health[player.index] = nil
@@ -325,14 +327,40 @@ script.on_event(defines.events.on_pre_build, function(event)
   end
   if entity or ghost then
     storage.existing_connections[event.player_index] = entity and entity.name or ghost.ghost_name
+    local fluid = entity and entity.fluidbox[1]
+    local previous = storage.previous[event.player_index]
+    if fluid and previous.valid and previous.name ~= "entity-ghost" then
+      local old_fluid = previous and previous.valid and previous.fluidbox[1]
+      -- only check validity if we're attempting to mix fluids
+      if fluid and old_fluid and fluid.name ~= old_fluid.name then
+        local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
+        local dist = (
+          math.ceil(perel.get_side_length(entity.name == "entity-ghost" and entity.ghost_prototype or entity.prototype)) +
+          math.ceil(perel.get_side_length(previous.name == "entity-ghost" and previous.ghost_prototype or previous.prototype))
+        ) / 2
+        if dx ~= dy and math.max(dx, dy) == dist then
+          -- entities will be connected, so prevent this
+          player.create_local_flying_text{
+            text = {"action-leads-to-fluid-mixing"},
+            create_at_cursor = true
+          } -- notify
+          entity.surface.create_entity{
+            name = "parallel-piping-blockage",
+            position = entity.position
+          } -- block placement
+          storage.previous[event.player_index] = entity -- update last entity
+          return
+        end
+      end
+    end
     if entity and event.build_mode == defines.build_mode.normal then
-      storage.old_health[event.player_index] = entity and entity.health or nil
-      if entity and entity.fluidbox[1] then
-        local fluid = entity.fluidbox[1]
+      -- no mixing happening, update fluid count
+      if fluid then
         local amount = entity.fluidbox.get_fluid_segment_contents(1)
         fluid.amount = amount and amount[fluid.name] or fluid.amount
-        storage.old_fluid[event.player_index] = fluid
       end
+      storage.old_fluid[event.player_index] = fluid
+      storage.old_health[event.player_index] = entity.health
       entity.health = entity.max_health
     end
   end

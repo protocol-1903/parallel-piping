@@ -183,5 +183,21 @@ data:extend{
       variations = variations,
       bitmasks = bitmasks
     }
+  },
+  {
+    name = "parallel-piping-blockage",
+    type = "corpse",
+    icon = util.empty_icon().icon,
+    collision_mask = {layers = {out_of_map = true}},
+    time_before_removed = 1,
+    remove_on_entity_placement = false,
+    flags = {
+      "placeable-neutral",
+      "placeable-off-grid",
+      "not-on-map",
+      "not-deconstructable",
+      "not-blueprintable",
+      "not-selectable-in-game"
+    }
   }
 }
