@@ -35,7 +35,8 @@ for _, surface in pairs(game.surfaces) do
           name = entity.name == "entity-ghost" and "entity-ghost" or variations[base][15],
           ghost_name = entity.name == "entity-ghost" and variations[base][15] or nil,
           position = entity.position,
-          quality = entity.quality
+          quality = entity.quality,
+          force = entity.force
         }
         entities[#entities+1] = {
           health = entity.health,

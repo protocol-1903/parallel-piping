@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.11
+Date: 2026-04-16
+  Bugfixes:
+    - Fixed that migrating pipes would remove them from the player force. Resolves https://github.com/protocol-1903/parallel-piping/issues/25
+---------------------------------------------------------------------------------------------------
 Version: 1.0.10
 Date: 2026-04-15
   Features:
