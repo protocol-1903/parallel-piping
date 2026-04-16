@@ -1,6 +1,8 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.10
 Date: 2026-04-15
+  Features:
+    - Added notification when unsuccessfully trying to mix fluids
   Bugfixes:
     - Fixed that migrations left pipes unconnected
     - Fixed that you could delete fluid in a network by connecting a pipe to it. Resolves https://github.com/protocol-1903/parallel-piping/issues/23
