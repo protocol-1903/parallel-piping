@@ -1,12 +1,12 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.12
-Date: 2026-04-20
+Date: 2026-04-21
   Changes:
     - Offloaded connection category logic to PEREL
     - Update connection logic with better connection category support
   Bugfixes:
     - Fixed that you couldn't connect pipes to entites but you could connect entities to pipes
-    - Fixed a crash when building pipes with fluid over entities without fluidboxes. Resolves https://github.com/protocol-1903/parallel-piping/issues/25
+    - Fixed a crash when building pipes with fluid over entities without fluidboxes. Resolves https://github.com/protocol-1903/parallel-piping/issues/27
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.11
 Date: 2026-04-16
