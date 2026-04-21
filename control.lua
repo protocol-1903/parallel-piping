@@ -186,15 +186,26 @@ local function on_built(event)
     if base_pipe[prev_name] then
       local prev_variation = 2 ^ (perel.get_direction(previous.position, entity.position) / 4)
       local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
-      local connect = base_pipe[existing or name] == base_pipe[prev_name] or existing == ""
+      local connect = base_pipe[existing or can_place and name or ""] == base_pipe[prev_name]
       local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
-        for category in pairs(get_categories(base and base_pipe[existing or name] or name)) do
-          update_connectables(category)
-          if connectables[category][base_pipe[prev_name]] then
-            connect = true
-            break
+        for i = 1, #entity.fluidbox do
+          for _, pipe_connection in pairs(entity.fluidbox.get_pipe_connections(i)) do
+            for _, e in pairs(entity.surface.find_entities_filtered{position = pipe_connection.target_position}) do
+              if e == previous then
+                for _, category in pairs(get_categories(base and base_pipe[existing or name] or name)) do
+                  update_connectables(category)
+                  if connectables[category][base_pipe[prev_name]] then
+                    connect = true
+                    break
+                  end
+                end
+              end
+              if connect then break end
+            end
+            if connect then break end
           end
+          if connect then break end
         end
       end
       local dist = (math.ceil(perel.get_side_length(prototype)) + math.ceil(perel.get_side_length(prototypes.entity[prev_name]))) / 2
