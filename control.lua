@@ -167,7 +167,7 @@ local function on_built(event)
       if not connect then
         if base_pipe[existing or can_place and name or ""] then
           -- both are pipes, check if they can connect via connection categories
-          local categories = perel.get_entity_connection_categories(prototypes.entity[variations[base_pipe[name]][1]])
+          local categories = perel.get_entity_connection_categories(prototypes.entity[variations[base_pipe[existing or can_place and name]][1]])
           for category in pairs(perel.get_entity_connection_categories(prototypes.entity[variations[base_pipe[prev_name]][1]])) do
             if categories[category] then
               connect = true
