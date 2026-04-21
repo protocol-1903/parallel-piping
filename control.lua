@@ -8,30 +8,6 @@ local bitmasks = assert(mod_data.data.bitmasks, "ERROR: data.bitmasks for parall
 
 local event_filter = {{filter = "type", type = "pipe"}, {filter = "ghost_type", type = "pipe"}, {filter = "type", type = "storage-tank"}, {filter = "ghost_type", type = "storage-tank"}}
 
-local categories = {}
-local function get_categories(entity)
-  local base = base_pipe[entity] and variations[base_pipe[entity]][1] or entity
-  if categories[base] then return categories[base] end
-  local prototype = prototypes.entity[base]
-  if not prototype.fluidbox_prototypes[1] then return {} end
-  categories[base] = {}
-  for _, pipe_connection in pairs(prototype.fluidbox_prototypes[1].pipe_connections) do
-    for _, category in pairs(pipe_connection.connection_category) do
-      categories[base][category] = true
-    end
-  end
-  return categories[base]
-end
-
-local connectables = {}
-local function update_connectables(category)
-  if connectables[category] then return end
-  connectables[category] = {}
-  for pipe in pairs(variations) do
-    connectables[category][pipe] = get_categories(pipe)[category]
-  end
-end
-
 local tank_to_pipe = {
   nothingburger = {
     [0] = 0,
@@ -186,52 +162,63 @@ local function on_built(event)
     if base_pipe[prev_name] then
       local prev_variation = 2 ^ (perel.get_direction(previous.position, entity.position) / 4)
       local new_mask = bit32.bor(bitmasks[prev_name], prev_variation)
+      local previous_prototype = prototypes.entity[prev_name]
       local connect = base_pipe[existing or can_place and name or ""] == base_pipe[prev_name]
-      local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
       if not connect then
-        for i = 1, #entity.fluidbox do
-          for _, pipe_connection in pairs(entity.fluidbox.get_pipe_connections(i)) do
-            for _, e in pairs(entity.surface.find_entities_filtered{position = pipe_connection.target_position}) do
-              if e == previous then
-                for _, category in pairs(get_categories(base and base_pipe[existing or name] or name)) do
-                  update_connectables(category)
-                  if connectables[category][base_pipe[prev_name]] then
-                    connect = true
-                    break
-                  end
-                end
-              end
-              if connect then break end
+        if base_pipe[existing or can_place and name or ""] then
+          -- both are pipes, check if they can connect via connection categories
+          local categories = perel.get_entity_connection_categories(prototypes.entity[variations[base_pipe[name]][1]])
+          for category in pairs(perel.get_entity_connection_categories(prototypes.entity[variations[base_pipe[prev_name]][1]])) do
+            if categories[category] then
+              connect = true
+              break
             end
-            if connect then break end
           end
-          if connect then break end
+        else
+          -- only the previous entity is a valid pipe, check if it can connect to this entity
+          local existing_entity
+          for _, e in pairs(surface.find_entities_filtered{position = entity.position, collision_mask = prototypes.entity[variations[base][0]].collision_mask.layers, force = entity.force}) do
+            if e ~= entity then
+              existing_entity = e
+              break
+            end
+          end
+          for _, neighbour in pairs(existing_entity and perel.get_possible_fluidbox_neighbours(existing_entity) or {}) do
+            if neighbour == previous then
+              connect = true
+              break
+            end
+          end
         end
       end
-      local dist = (math.ceil(perel.get_side_length(prototype)) + math.ceil(perel.get_side_length(prototypes.entity[prev_name]))) / 2
-      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect and new_mask ~= bitmasks[prev_name] then
+      local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
+      local dist = (math.ceil(perel.get_side_length(prototype)) + math.ceil(perel.get_side_length(previous_prototype))) / 2
+      if (not can_place or dx ~= dy and math.max(dx, dy) == dist) and connect then
+        -- update variation, regardless of if the previous entity is updated
         variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
-        local build_index, build_action = perel.find_build_item(stack, previous)
-        local health = previous.health
-        other_fluid = previous.fluidbox[1]
-        if other_fluid then
-          local amount = previous.fluidbox.get_fluid_segment_contents(1)
-          other_fluid.amount = amount and amount[other_fluid.name] or other_fluid.amount
+        if new_mask ~= bitmasks[prev_name] then -- actually update the previously selected pipe
+          local build_index, build_action = perel.find_build_item(stack, previous)
+          local health = previous.health
+          other_fluid = previous.fluidbox[1]
+          if other_fluid then
+            local amount = previous.fluidbox.get_fluid_segment_contents(1)
+            other_fluid.amount = amount and amount[other_fluid.name] or other_fluid.amount
+          end
+          local new_prev = surface.create_entity{
+            name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
+            ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]][new_mask] or nil,
+            position = previous.position,
+            quality = previous.quality,
+            force = previous.force,
+            player = build_index and player.index or nil,
+            undo_index = build_index,
+            create_build_effect_smoke = false,
+          }
+          previous.destroy()
+          if build_index then stack.remove_undo_action(build_index, build_action) end
+          if health then new_prev.health = health end
+          if other_fluid then new_prev.fluidbox[1] = other_fluid end
         end
-        local new_prev = surface.create_entity{
-          name = previous.name == "entity-ghost" and "entity-ghost" or variations[base_pipe[prev_name]][new_mask],
-          ghost_name = previous.name == "entity-ghost" and variations[base_pipe[prev_name]][new_mask] or nil,
-          position = previous.position,
-          quality = previous.quality,
-          force = previous.force,
-          player = build_index and player.index or nil,
-          undo_index = build_index,
-          create_build_effect_smoke = false,
-        }
-        previous.destroy()
-        if build_index then stack.remove_undo_action(build_index, build_action) end
-        if health then new_prev.health = health end
-        if other_fluid then new_prev.fluidbox[1] = other_fluid end
       end
     else -- not a pipe, connect generically if allowed
       local found = false
