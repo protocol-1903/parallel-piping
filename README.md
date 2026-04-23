@@ -8,6 +8,7 @@ Pairs very well with lots of fluids... In fact, *very* well with mods that turn 
 - [Pipe Junctions](https://mods.factorio.com/mod/pipe-junctions): Fully compatible. A well-suited combination, allows you to (almost) build things like belts.
 - [Actual Underground Pipes](https://mods.factorio.com/mod/the-one-mod-with-underground-bits): Fully compatible. In fact, they work rather well together! I can highly recommend it!
 - [No Pipe Touching](https://mods.factorio.com/mod/no-pipe-touching): Fully compatible. NOTE: If used in conjunction with AUP, all underground pipes are forced to share the same layer.
+- [Fluid Must Flow](https://mods.factorio.com/mod/FluidMustFlow): Doesn't do anything, but if you use the [Duct Duct Go](https://mods.factorio.com/mod/duct-duct-go) patch it works perfectly.
 - [RGB Pipes](https://mods.factorio.com/mod/RGBPipes): Fully supported
 - [Color Coded Pipes](https://mods.factorio.com/mod/color-coded-pipes): Fully supported
 - [pYmods](https://mods.factorio.com/mod/pyalternativeenergy): Fully supported
