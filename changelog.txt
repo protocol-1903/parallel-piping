@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.13
+Date: ???
+  Compatibility:
+    - Fixed load order issue with pY Streamlined. Resolves https://github.com/protocol-1903/parallel-piping/issues/31
+---------------------------------------------------------------------------------------------------
 Version: 1.0.12
 Date: 2026-04-21
   Changes:
