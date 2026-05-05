@@ -3,6 +3,8 @@ Version: 1.0.13
 Date: ???
   Compatibility:
     - Fixed load order issue with pY Streamlined. Resolves https://github.com/protocol-1903/parallel-piping/issues/31
+  Bugfixes:
+    - Fixed a rare crash when connecting pipes to pipe to grounds. Resolves https://github.com/protocol-1903/parallel-piping/issues/30
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.12
 Date: 2026-04-21

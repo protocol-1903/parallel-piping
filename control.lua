@@ -177,7 +177,7 @@ local function on_built(event)
         else
           -- only the previous entity is a valid pipe, check if it can connect to this entity
           local existing_entity
-          for _, e in pairs(surface.find_entities_filtered{position = entity.position, collision_mask = prototypes.entity[variations[base][0]].collision_mask.layers, force = entity.force}) do
+          for _, e in pairs(surface.find_entities_filtered{position = entity.position, collision_mask = prototypes.entity[base and variations[base][0] or name].collision_mask.layers, force = entity.force}) do
             if e ~= entity then
               existing_entity = e
               break
