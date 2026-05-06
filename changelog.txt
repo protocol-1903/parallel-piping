@@ -10,6 +10,7 @@ Date: ???
   Bugfixes:
     - Fixed a rare crash when connecting pipes to pipe to grounds. Resolves https://github.com/protocol-1903/parallel-piping/issues/30
     - Fixed that fluids would not be properly mixed when connecting two networks in some cases
+    - Fixed that fluids would not be properly distributed when an entity is destroyed (its still floating point logic so *yay* but close enough)
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.12
 Date: 2026-04-21

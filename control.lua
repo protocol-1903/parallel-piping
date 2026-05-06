@@ -421,35 +421,59 @@ local function on_destroyed(event)
     local i = perel.find_build_action(stack.get_undo_item(1), entity)
     if i then stack.remove_undo_action(1, i) end
   end
-  for _, neighbour in pairs(perel.get_fluidbox_neighoburs(entity)) do
-    local mask = bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
-    local b2 = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
-    local bit = 2 ^ (perel.get_direction(neighbour.position, entity.position) / 4)
-    if mask and b2 and bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
-      mask = mask - bit
-      local build_index, build_action = perel.find_build_item(stack, neighbour)
-      local health = neighbour.health
-      local marked = neighbour.to_be_deconstructed()
-      local fluid = neighbour.fluidbox[1]
-      if fluid then
-        local amount = neighbour.fluidbox.get_fluid_segment_contents(1)
-        fluid.amount = amount and amount[fluid.name] or fluid.amount
+  local fluid_target_thresholds = {}
+  ---@cast fluid_target_thresholds Fluid[]
+  for i = 1, #entity.fluidbox do
+    local fluid = entity.fluidbox[i]
+    if fluid then
+      local amount = entity.fluidbox.get_fluid_segment_contents(i)
+      amount = amount and amount[fluid.name] or fluid.amount
+      local total_capacity = entity.fluidbox.get_capacity(i)
+      local this_capacity = entity.prototype.fluidbox_prototypes[i].volume
+      fluid.amount = amount / (total_capacity - this_capacity)
+      fluid_target_thresholds[i] = fluid
+    end
+  end
+  local fluid_targets = {}
+  ---@cast fluid_targets {target: LuaFluidBox, target_fluidbox_index: int, target_pipe_connection_index: int}[][]
+  for i, fluidbox in pairs(perel.get_fluidbox_targets_by_fluidbox_and_connection(entity)) do
+    fluid_targets[i] = {}
+    for _, tuple in pairs(fluidbox) do
+      local neighbour = tuple.target.owner --[[@as LuaEntity]]
+      local mask = bitmasks[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+      local b2 = base_pipe[neighbour.name == "entity-ghost" and neighbour.ghost_name or neighbour.name]
+      local bit = 2 ^ (perel.get_direction(neighbour.position, entity.position) / 4)
+      fluid_targets[i][#fluid_targets[i]+1] = tuple
+      if mask and b2 and bit32.btest(mask, bit) and not neighbour.to_be_deconstructed() then
+        mask = mask - bit
+        local build_index, build_action = perel.find_build_item(stack, neighbour)
+        local health = neighbour.health
+        local marked = neighbour.to_be_deconstructed()
+        local new_neighbour = surface.create_entity{
+          name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[b2][mask],
+          ghost_name = neighbour.name == "entity-ghost" and variations[b2][mask] or nil,
+          position = neighbour.position,
+          quality = neighbour.quality,
+          force = neighbour.force,
+          player = build_index and player.index or nil,
+          undo_index = build_index,
+          create_build_effect_smoke = false
+        }
+        neighbour.destroy()
+        if build_index then stack.remove_undo_action(build_index, build_action) end
+        if health then new_neighbour.health = health end
+        if marked then new_neighbour.order_deconstruction(new_neighbour.force) end
+        fluid_targets[i][#fluid_targets[i]] = {target = new_neighbour.fluidbox, target_fluidbox_index = 1} -- update fluid distribution target
       end
-      local new_neighbour = surface.create_entity{
-        name = neighbour.name == "entity-ghost" and "entity-ghost" or variations[b2][mask],
-        ghost_name = neighbour.name == "entity-ghost" and variations[b2][mask] or nil,
-        position = neighbour.position,
-        quality = neighbour.quality,
-        force = neighbour.force,
-        player = build_index and player.index or nil,
-        undo_index = build_index,
-        create_build_effect_smoke = false
-      }
-      neighbour.destroy()
-      if build_index then stack.remove_undo_action(build_index, build_action) end
-      if health then new_neighbour.health = health end
-      if marked then new_neighbour.order_deconstruction(new_neighbour.force) end
-      if fluid then new_neighbour.fluidbox[1] = fluid end
+    end
+  end
+
+  -- evenly distribute fluid
+  for i, fluid in pairs(fluid_target_thresholds) do
+    local fill_percent = fluid.amount
+    for _, tuple in pairs(fluid_targets[i]) do
+      fluid.amount = fill_percent * tuple.target.get_capacity(tuple.target_fluidbox_index)
+      tuple.target[tuple.target_fluidbox_index] = fluid
     end
   end
 end
