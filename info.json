@@ -9,7 +9,7 @@
   "factorio_version": "2.0",
   "dependencies": [
     "base",
-    "perel >= 1.1.5",
+    "perel >= 1.1.6",
     "? the-one-mod-with-underground-bits",
     "? pipe-junctions",
     "? no-pipe-touching",
