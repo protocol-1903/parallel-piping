@@ -436,7 +436,7 @@ local function on_destroyed(event)
   end
   local fluid_targets = {}
   ---@cast fluid_targets {target: LuaFluidBox, target_fluidbox_index: int, target_pipe_connection_index: int}[][]
-  for i, fluidbox in pairs(perel.get_fluidbox_targets_by_fluidbox_and_connection(entity)) do
+  for i, fluidbox in pairs(perel.get_fluidbox_targets_by_fluidbox_and_connection(entity, true, true)) do
     fluid_targets[i] = {}
     for _, tuple in pairs(fluidbox) do
       local neighbour = tuple.target.owner --[[@as LuaEntity]]
