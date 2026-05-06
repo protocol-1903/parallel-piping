@@ -201,7 +201,7 @@ local function on_built(event)
                         local amount = previous.fluidbox.get_fluid_segment_contents(1)
                         previous_fluid.amount = amount and amount[previous_fluid.name] or other_fluid.amount
                       end
-                      connect = connect and (existing_fluid.name == previous_fluid.name or not existing_fluid or not previous_fluid)
+                      connect = connect and (not existing_fluid or not previous_fluid or existing_fluid.name == previous_fluid.name)
                       fluid_amount = connect and existing_fluid.amount + previous_fluid.amount
                       break
                     end
