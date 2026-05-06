@@ -42,7 +42,7 @@ for p, prototype in pairs(data.raw.pipe) do
     base_pipe[p] = p
     variations[p] = {}
     -- sort pipe connections to north, south, east, west
-    local pipe_connections = prototype.fluid_box.pipe_connections
+    local pipe_connections = table.deepcopy(prototype.fluid_box.pipe_connections)
     for _, connection in pairs(pipe_connections) do
       connection.flow_direction = "input-output"
       prototype.fluid_box.pipe_connections[connection.direction/4+1] = connection

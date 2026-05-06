@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.14
+Date: 2026-05-06
+  Compatibility:
+    - Fixed load order issue with Duct Duct Go
+  Bugfixes:
+    - Fixed that reindexing pipe connections would error if ordered incorrectly
+---------------------------------------------------------------------------------------------------
 Version: 1.0.13
 Date: 2026-05-06
   Changes:
