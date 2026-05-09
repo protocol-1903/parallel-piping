@@ -202,7 +202,7 @@ local function on_built(event)
                         previous_fluid.amount = amount and amount[previous_fluid.name] or other_fluid.amount
                       end
                       connect = connect and (not existing_fluid or not previous_fluid or existing_fluid.name == previous_fluid.name)
-                      fluid_amount = connect and existing_fluid.amount + previous_fluid.amount
+                      fluid_amount = connect and (existing_fluid and existing_fluid.amount or 0) + (previous_fluid and previous_fluid.amount or 0)
                       break
                     end
                   end
