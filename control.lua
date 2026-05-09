@@ -181,7 +181,7 @@ local function on_built(event)
             -- check fluid compatibility
             local existing_fluid = player and storage.old_fluid[player.index]
             local previous_fluid = previous.fluidbox[1]
-            connect = connect and (existing_fluid.name == previous_fluid.name or not existing_fluid or not previous_fluid)
+            connect = connect and (not existing_fluid or not previous_fluid or existing_fluid.name == previous_fluid.name)
           else
             -- only the previous entity is a valid pipe, check if it can connect to this entity
             for _, existing_entity in pairs(surface.find_entities_filtered{position = entity.position, collision_mask = prototypes.entity[base and variations[base][0] or name].collision_mask.layers, force = entity.force}) do

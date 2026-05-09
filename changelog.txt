@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.16
+Date: 2026-05-08
+  Bugfixes:
+    - Fixed (yet another) a crash when connecting pipes to non-pipes with fluids. Resolves https://github.com/protocol-1903/parallel-piping/issues/33
+---------------------------------------------------------------------------------------------------
 Version: 1.0.15
 Date: 2026-05-08
   Bugfixes:
