@@ -1,6 +1,6 @@
 {
   "name": "parallel-piping",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "title": "Parallel Piping",
   "description": "Allows you to easily construct pipes running in parallel, without connecting. Designed as a less fancy alternative to Flow Configuration, without the inventory complexity of Flow Control.",
   "author": "protocol_1903",
@@ -16,6 +16,7 @@
     "? no-pipe-touching",
     "! flow-config",
     "! Flow Control",
-    "(?) pysimple"
+    "(?) pysimple",
+    "(?) Krastorio2"
   ]
 }
