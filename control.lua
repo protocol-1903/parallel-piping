@@ -430,8 +430,10 @@ local function on_destroyed(event)
       amount = amount and amount[fluid.name] or fluid.amount
       local total_capacity = entity.fluidbox.get_capacity(i)
       local this_capacity = entity.prototype.fluidbox_prototypes[i].volume
-      fluid.amount = amount / (total_capacity - this_capacity)
-      fluid_target_thresholds[i] = fluid
+      if total_capacity ~= this_capacity then
+        fluid.amount = amount / (total_capacity - this_capacity)
+        fluid_target_thresholds[i] = fluid
+      end
     end
   end
   local fluid_targets = {}
