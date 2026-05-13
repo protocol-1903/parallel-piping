@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.17
-Date: ???
+Date: 2026-05-13
   Bugfixes:
     - Fixed that Krastorio 2 steel pipes could be connected to normal pipes. Resolves https://github.com/protocol-1903/parallel-piping/issues/35
     - Fixed a crash when trying to insert an infinite amount of fluid after removing pipes. Resolves https://github.com/protocol-1903/parallel-piping/issues/36
