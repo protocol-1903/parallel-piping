@@ -78,6 +78,11 @@ for index, set in pairs(variations) do
   variations[index] = new_set
 end
 
+-- update PEREL conneciton categories for 00 entities
+for _, set in pairs(variations) do
+  perel.set_entity_connection_categories(set[0], perel.get_entity_connection_categories(prototypes.entity[set[1]]))
+end
+
 script.on_init(function()
   ---@type table<uint, uint> player index -> tick
   storage.build_ticks = {}
@@ -156,7 +161,7 @@ local function on_built(event)
   end
 
   local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
-  local ignore = not not bitmasks[prototype.name] -- cancel if this is already a variation
+  local ignore = not not bitmasks[name] -- cancel if this is already a variation
   local other_fluid
 
   if prev_name and not ignore then
@@ -185,7 +190,7 @@ local function on_built(event)
             connect = connect and (not existing_fluid or not previous_fluid or existing_fluid.name == previous_fluid.name)
           else
             -- only the previous entity is a valid pipe, check if it can connect to this entity
-            for _, existing_entity in pairs(surface.find_entities_filtered{position = entity.position, collision_mask = prototypes.entity[base and variations[base][0] or name].collision_mask.layers, force = entity.force}) do
+            for _, existing_entity in pairs(surface.find_entities_filtered{position = entity.position, force = entity.force}) do
               if existing_entity ~= entity then
                 for i, fluidbox in pairs(existing_entity and perel.get_possible_fluidbox_neighbours_by_fluidbox_and_connection(existing_entity) or {}) do
                   for _, neighbour in pairs(fluidbox) do
@@ -246,7 +251,7 @@ local function on_built(event)
       local found = false
       for i = 1, #previous.fluidbox do
         for _, connection in pairs(previous.fluidbox.get_pipe_connections(i)) do
-          if connection.target_position.x == entity.position.x and connection.target_position.y == entity.position.y then
+          if surface.find_entity(name, connection.target_position) then
             variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
             found = true
             break
@@ -294,14 +299,32 @@ local function on_built(event)
       end
     end
     local params = {
-      position = entity.position,
-      force = entity.force,
-      collision_mask = prototypes.entity[variations[base][variation]].collision_mask.layers,
-      limit = 1
+        position = entity.position,
+        force = entity.force,
+        collision_mask = prototypes.entity[variations[base][variation]].collision_mask.layers
     }
     entity.destroy()
     if player then
-      storage.previous[player.index] = surface.find_entities_filtered(params)[1]
+      local found
+      for _, e in pairs(surface.find_entities_filtered(params)) do
+        local p = e.type == "entity-ghost" and e.ghost_prototype or e.prototype
+        if #p.fluidbox_prototypes ~= 0 then
+          storage.previous[player.index] = e
+          found = true
+          break
+        end
+      end
+      if not found then
+        -- even more basic check, ignore collision mask
+        params.collision_mask = nil
+        for _, e in pairs(surface.find_entities_filtered(params)) do
+          local p = e.type == "entity-ghost" and e.ghost_prototype or e.prototype
+          if #p.fluidbox_prototypes ~= 0 then
+            storage.previous[player.index] = e
+            break
+          end
+        end
+      end
     end
   end
 
