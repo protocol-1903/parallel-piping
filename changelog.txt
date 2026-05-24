@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.18
-Date: ???
+Date: 2026-05-23
   Changes:
     - Updated create_entity calls to raise_built = true in most instances
   Bugfixes:
