@@ -3,6 +3,8 @@ Version: 1.0.18
 Date: ???
   Changes:
     - Updated create_entity calls to raise_built = true in most instances
+  Bugfixes:
+    - Fixed a crash when trying to insert a negative amount of fluid into a pipe. Resolves https://github.com/protocol-1903/parallel-piping/issues/42
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.17
 Date: 2026-05-13

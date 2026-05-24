@@ -480,7 +480,9 @@ local function on_destroyed(event)
     local fill_percent = fluid.amount
     for _, tuple in pairs(fluid_targets[i]) do
       fluid.amount = fill_percent * tuple.target.get_capacity(tuple.target_fluidbox_index)
-      tuple.target[tuple.target_fluidbox_index] = fluid
+      if fluid.amount > 0 then
+        tuple.target[tuple.target_fluidbox_index] = fluid
+      end
     end
   end
 end
