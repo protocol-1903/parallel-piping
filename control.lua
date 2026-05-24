@@ -134,6 +134,7 @@ local function on_built(event)
         player = event.player_index,
         undo_index = player and 1 or nil,
         create_build_effect_smoke = false,
+        raise_built = true
       }
       entity.destroy()
       if player then
@@ -232,6 +233,7 @@ local function on_built(event)
               player = build_index and player.index or nil,
               undo_index = build_index,
               create_build_effect_smoke = false,
+              raise_built = true
             }
             previous.destroy()
             if build_index then stack.remove_undo_action(build_index, build_action) end
@@ -274,6 +276,7 @@ local function on_built(event)
       player = event.player_index,
       undo_index = player and 1 or nil,
       create_build_effect_smoke = false,
+      raise_built = true
     }
     entity.destroy()
     if health then new_entity.health = health end
@@ -398,7 +401,8 @@ script.on_event(defines.events.on_pre_build, function(event)
       position = entity.position,
       quality = entity.quality,
       force = entity.force,
-      create_build_effect_smoke = false
+      create_build_effect_smoke = false,
+      raise_built = true
     }
     entity.destroy();
     on_built(event_data)
@@ -459,7 +463,8 @@ local function on_destroyed(event)
           force = neighbour.force,
           player = build_index and player.index or nil,
           undo_index = build_index,
-          create_build_effect_smoke = false
+          create_build_effect_smoke = false,
+          raise_built = true
         }
         neighbour.destroy()
         if build_index then stack.remove_undo_action(build_index, build_action) end
@@ -516,7 +521,8 @@ script.on_event(defines.events.on_cancelled_deconstruction, function (event)
     force = entity.force,
     player = build_index and player.index or nil,
     undo_index = build_index,
-    create_build_effect_smoke = false
+    create_build_effect_smoke = false,
+    raise_built = true
   }
   entity.destroy()
   local new_entity = surface.create_entity(params)
