@@ -193,23 +193,25 @@ local function on_built(event)
             for _, existing_entity in pairs(surface.find_entities_filtered{position = entity.position, force = entity.force}) do
               if existing_entity ~= entity then
                 for i, fluidbox in pairs(existing_entity and perel.get_possible_fluidbox_neighbours_by_fluidbox_and_connection(existing_entity) or {}) do
-                  for _, neighbour in pairs(fluidbox) do
-                    if neighbour == previous then
-                      connect = true
-                      -- check fluid compatibility
-                      local existing_fluid = existing_entity.fluidbox[i]
-                      if existing_fluid then
-                        local amount = existing_entity.fluidbox.get_fluid_segment_contents(i)
-                        existing_fluid.amount = amount and amount[existing_fluid.name] or existing_fluid.amount
+                  for _, neighbours in pairs(fluidbox) do
+                    for _, neighbour in pairs(neighbours) do
+                      if neighbour == previous then
+                        connect = true
+                        -- check fluid compatibility
+                        local existing_fluid = existing_entity.fluidbox[i]
+                        if existing_fluid then
+                          local amount = existing_entity.fluidbox.get_fluid_segment_contents(i)
+                          existing_fluid.amount = amount and amount[existing_fluid.name] or existing_fluid.amount
+                        end
+                        local previous_fluid = previous.fluidbox[1]
+                        if previous_fluid then
+                          local amount = previous.fluidbox.get_fluid_segment_contents(1)
+                          previous_fluid.amount = amount and amount[previous_fluid.name] or other_fluid.amount
+                        end
+                        connect = connect and (not existing_fluid or not previous_fluid or existing_fluid.name == previous_fluid.name)
+                        fluid_amount = connect and (existing_fluid and existing_fluid.amount or 0) + (previous_fluid and previous_fluid.amount or 0)
+                        break
                       end
-                      local previous_fluid = previous.fluidbox[1]
-                      if previous_fluid then
-                        local amount = previous.fluidbox.get_fluid_segment_contents(1)
-                        previous_fluid.amount = amount and amount[previous_fluid.name] or other_fluid.amount
-                      end
-                      connect = connect and (not existing_fluid or not previous_fluid or existing_fluid.name == previous_fluid.name)
-                      fluid_amount = connect and (existing_fluid and existing_fluid.amount or 0) + (previous_fluid and previous_fluid.amount or 0)
-                      break
                     end
                   end
                 end
