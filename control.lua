@@ -374,7 +374,7 @@ script.on_event(defines.events.on_pre_build, function(event)
     local fluid = entity and entity.fluidbox[1]
     local previous = storage.previous[event.player_index]
     if fluid and previous.valid and previous.name ~= "entity-ghost" then
-      local old_fluid = previous and previous.valid and previous.fluidbox[1]
+      local old_fluid = previous and previous.valid and #previous.fluidbox ~= 0 and previous.fluidbox[1]
       -- only check validity if we're attempting to mix fluids
       if fluid and old_fluid and fluid.name ~= old_fluid.name then
         local dx, dy = math.abs(entity.position.x - previous.position.x), math.abs(entity.position.y - previous.position.y)
