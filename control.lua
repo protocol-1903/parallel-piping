@@ -295,7 +295,7 @@ local function on_built(event)
     if entity.name ~= "entity-ghost" then
       if player and player.cursor_stack and player.cursor_stack.valid_for_read then
         player.cursor_stack.count = player.cursor_stack.count + 1
-      elseif player and event.consumed_items and player.cursor_stack and player.is_cursor_empty() then
+      elseif player and event.consumed_items and player.cursor_stack and (player.is_cursor_empty() or player.cursor_ghost and player.cursor_ghost.name.name == event.consumed_items[1].name) then
         -- just placed last item, put it back
         player.cursor_stack.transfer_stack(event.consumed_items[1])
       end

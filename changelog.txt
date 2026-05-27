@@ -4,6 +4,7 @@ Date: ????
   Bugfixes:
     - Fixed a crash when indexing nonexsitant fluidboxes. Resolves https://github.com/protocol-1903/parallel-piping/issues/47
     - Fixed that entities would sometimes not be connectable to pipes if other hidden entities were in the way. Resolves https://github.com/protocol-1903/parallel-piping/issues/46
+    - Fixed that placing your last pipe with cursor enhancements enabled in an invalid location would destroy the item. Resolves https://github.com/protocol-1903/parallel-piping/issues/45
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.18
 Date: 2026-05-23
