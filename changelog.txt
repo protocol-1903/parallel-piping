@@ -1,8 +1,11 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.20
 Date: ????
+  Changes:
+    - Updated pipe connection category in PEREL to use the same as the modded pipes
   Bugfixes:
     - Fixed that ghost pipes could be placed inside other entities. Resolves https://github.com/protocol-1903/parallel-piping/issues/50
+    - Fixed that ghost pipes dragged from a ghost entity would not create connections
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.19
 Date: 2026-05-26

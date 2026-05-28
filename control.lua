@@ -78,9 +78,10 @@ for index, set in pairs(variations) do
   variations[index] = new_set
 end
 
--- update PEREL conneciton categories for 00 entities
-for _, set in pairs(variations) do
+-- update PEREL conneciton categories for 00 entities and pipes
+for base, set in pairs(variations) do
   perel.set_entity_connection_categories(set[0], perel.get_entity_connection_categories(prototypes.entity[set[1]]))
+  perel.set_entity_connection_categories(base, perel.get_entity_connection_categories(prototypes.entity[set[1]]))
 end
 
 script.on_init(function()
@@ -270,17 +271,14 @@ local function on_built(event)
           end
         end
       end
-    else -- not a pipe, connect generically if allowed
+    else -- previous is not a pipe, connect generically if allowed
       local found = false
-      for i = 1, #previous.fluidbox do
-        for _, connection in pairs(previous.fluidbox.get_pipe_connections(i)) do
-          if surface.find_entity(name, connection.target_position) then
-            variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
-            found = true
-            break
-          end
+      for _, neighbour in pairs(perel.get_possible_fluidbox_neighbours(previous)) do
+        if neighbour == entity then
+          variation = bit32.bor(variation, 2 ^ (perel.get_direction(entity.position, previous.position) / 4))
+          found = true
+          break
         end
-        if found then break end
       end
     end
   end
