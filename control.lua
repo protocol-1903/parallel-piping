@@ -214,7 +214,7 @@ local function on_built(event)
             -- only the previous entity is a valid pipe, check if it can connect to this entity
             for _, existing_entity in pairs(surface.find_entities_filtered{position = entity.position, force = entity.force}) do
               if existing_entity ~= entity then
-                for i, fluidbox in pairs(existing_entity and perel.get_possible_fluidbox_neighbours_by_fluidbox_and_connection(existing_entity) or {}) do
+                for i, fluidbox in pairs(perel.get_possible_fluidbox_neighbours_by_fluidbox_and_connection(existing_entity)) do
                   for _, neighbours in pairs(fluidbox) do
                     for _, neighbour in pairs(neighbours) do
                       if neighbour == previous then
@@ -237,7 +237,7 @@ local function on_built(event)
                     end
                   end
                 end
-                if connect ~= nil then break end
+                if connect then break end
               end
             end
           end
