@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.20
-Date: ????
+Date: 2026-05-28
   Changes:
     - Updated pipe connection category in PEREL to use the same as the modded pipes
   Bugfixes:
