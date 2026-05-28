@@ -350,7 +350,7 @@ local function on_built(event)
   end
 
   -- simple remove only item in list (this thing that was just built)
-  if stack and not blueprint then
+  if base and stack and not blueprint then
     stack.remove_undo_action(1, 1)
   end
 end

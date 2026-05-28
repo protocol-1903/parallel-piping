@@ -6,6 +6,7 @@ Date: ????
   Bugfixes:
     - Fixed that ghost pipes could be placed inside other entities. Resolves https://github.com/protocol-1903/parallel-piping/issues/50
     - Fixed that ghost pipes dragged from a ghost entity would not create connections
+    - Fixed that only pipes could be undone. Resolves https://github.com/protocol-1903/parallel-piping/issues/49
     - Fixed that certan compound entity-pipe connections could not be formed when placing the pipe then on the entity. Resolves https://github.com/protocol-1903/parallel-piping/issues/48
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.19
