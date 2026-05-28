@@ -160,7 +160,28 @@ local function on_built(event)
     storage.existing_connections[player.index] = nil
   end
 
-  local can_place = base and surface.can_place_entity{name = variations[base][0], position = entity.position, force = entity.force}
+  local can_place = base and surface.can_place_entity{
+    name = variations[base][0],
+    position = entity.position,
+    force = entity.force,
+  }
+  if can_place and entity.type == "entity-ghost" then
+    for _, ghost in pairs(surface.find_entities_filtered{
+      type = "entity-ghost",
+      position = entity.position,
+      force = entity.force
+    }) do
+      if ghost ~= entity then
+        for layer in pairs(prototypes.entity[variations[base][0]].collision_mask.layers) do
+          if ghost.ghost_prototype.collision_mask.layers[layer] then
+            can_place = false
+            break
+          end
+        end
+        if not can_place then break end
+      end
+    end
+  end
   local ignore = not not bitmasks[name] -- cancel if this is already a variation
   local other_fluid
 
