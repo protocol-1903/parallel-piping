@@ -201,3 +201,9 @@ data:extend{
     }
   }
 }
+
+for p in pairs(variations) do
+  if data.raw.pipe[p] then
+    data.raw.pipe[p].collision_mask = {layers = {out_of_map = true}}
+  end
+end

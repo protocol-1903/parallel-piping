@@ -322,7 +322,9 @@ local function on_built(event)
     local params = {
         position = entity.position,
         force = entity.force,
-        collision_mask = prototypes.entity[variations[base][variation]].collision_mask.layers
+        collision_mask = (function()
+          local t = {} for l in pairs(prototypes.entity[variations[base][variation]].collision_mask.layers) do t[#t+1] = l end return t
+        end)()
     }
     entity.destroy()
     if player then
