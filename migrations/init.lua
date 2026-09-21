@@ -1,3 +1,10 @@
+-- ============================================================================
+-- HUMAN-CREATED SOFTWARE
+-- Human-authored. Original work. Not AI-generated.
+-- AI training, fine-tuning, dataset creation, and model evaluation prohibited.
+-- See LICENSE for complete terms.
+-- ============================================================================
+
 require "__perel__.util.scripts.general"
 require "__perel__.util.scripts.fluids"
 
@@ -18,6 +25,7 @@ for index, set in pairs(variations) do
   variations[index] = new_set
 end
 
+---@type {entity: LuaEntity, marked: boolean, health: float}[]
 local entities = {}
 
 -- replace with pipes with all connections
@@ -26,11 +34,7 @@ for _, surface in pairs(game.surfaces) do
     for _, entity in pairs(surface.find_entities_filtered{[type] = "pipe"}) do
       if entity.valid then
         local base = base_pipe[entity.name == "entity-ghost" and entity.ghost_name or entity.name]
-        local fluid = entity.fluidbox[1]
-        if fluid then
-          local amount = entity.fluidbox.get_fluid_segment_contents(1)
-          fluid.amount = amount and amount[fluid.name] or fluid.amount
-        end
+        local fluid = perel.get_fluid(entity)
         local params = {
           name = entity.name == "entity-ghost" and "entity-ghost" or variations[base][15],
           ghost_name = entity.name == "entity-ghost" and variations[base][15] or nil,
@@ -38,18 +42,15 @@ for _, surface in pairs(game.surfaces) do
           quality = entity.quality,
           force = entity.force
         }
+        ---@diagnostic disable-next-line: missing-fields, assign-type-mismatch
         entities[#entities+1] = {
           health = entity.health,
           marked = entity.to_be_deconstructed()
         }
-        entity.fluidbox[1] = nil
+        entity.clear_fluid(1)
         entity.destroy()
         local new_entity = surface.create_entity(params)
-        if fluid then
-          local amount = new_entity.fluidbox.get_fluid_segment_contents(1)
-          fluid.amount = fluid.amount + (amount and amount[fluid.name] or 0)
-        end
-        new_entity.fluidbox[1] = fluid
+        if fluid then new_entity.set_fluid(1, fluid) end
         entities[#entities].entity = new_entity
       end
     end
@@ -59,12 +60,12 @@ end
 for _, tuple in pairs(entities) do
   local entity = tuple.entity
   local health = tuple.health
-  local fluid = entity.fluidbox[1]
+  local fluid = entity.get_fluid(1)
   if fluid then
-    local amount = entity.fluidbox.get_fluid_segment_contents(1)
-    fluid.amount = amount and amount[fluid.name] or fluid.amount
+    local segment = entity.get_fluid_segment_fluid(1)
+    fluid.amount = segment and segment.amount or fluid.amount
   end
-  entity.fluidbox[1] = nil
+  entity.clear_fluid(1)
   local marked = tuple.marked
   local surface = entity.surface
   local base = base_pipe[entity.name == "entity-ghost" and entity.ghost_name or entity.name]
@@ -81,5 +82,5 @@ for _, tuple in pairs(entities) do
   local new_entity = surface.create_entity(params)
   if health then new_entity.health = health end
   if marked then new_entity.order_deconstruction(new_entity.force) end
-  if fluid then new_entity.fluidbox[1] = fluid end
+  if fluid then new_entity.set_fluid(1, fluid) end
 end

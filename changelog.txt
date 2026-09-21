@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.0
+Date: ????
+  Features:
+    - Updated for 2.1
+  Changes:
+    - Updated license
+    - Added human-created software disclaimer to lua file headers
+  Bugfixes:
+    - Fixed a crash when pipes were unmarked for deconstruction without a player. Resolves https://github.com/protocol-1903/parallel-piping/issues/60
+    - Fixed that upgrade planner did not work on pipes. Resolves https://github.com/protocol-1903/parallel-piping/issues/43
+---------------------------------------------------------------------------------------------------
 Version: 1.0.20
 Date: 2026-05-28
   Changes:

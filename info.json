@@ -1,15 +1,15 @@
 {
   "name": "parallel-piping",
-  "version": "1.0.20",
+  "version": "1.1.0",
   "title": "Parallel Piping",
   "description": "Allows you to easily construct pipes running in parallel, without connecting. Designed as a less fancy alternative to Flow Configuration, without the inventory complexity of Flow Control.",
   "author": "protocol_1903",
   "contact": "https://discord.gg/K3fXMGVc4z",
   "homepage": "https://github.com/protocol-1903/parallel-piping",
-  "factorio_version": "2.0",
+  "factorio_version": "2.1",
   "dependencies": [
     "base",
-    "perel >= 1.1.9",
+    "perel >= 1.2.0",
     "? the-one-mod-with-underground-bits",
     "? pipe-junctions",
     "? duct-duct-go",
