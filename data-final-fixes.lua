@@ -5,10 +5,16 @@
 -- See LICENSE for complete terms.
 -- ============================================================================
 
-local base_pipe, variations, bitmasks = {}, {}, {}
----@cast base_pipe {[string]: string}
----@cast variations {[string]: {[integer|defines.direction|string]: string}}
----@cast bitmasks {[string]: integer|defines.direction|string}
+---@type {[EntityName]: BasePipe}
+local base_pipe = {}
+---@type {[BasePipe]: {[integer]: EntityName}}
+local variations = {}
+---@type {[BasePipe]: {[string]: EntityName}}
+local tank_variations = {}
+---@type {[EntityName]: integer}
+local bitmasks = {}
+---@type {[EntityName]: string}
+local tank_bitmasks = {}
 
 
 local blacklist = {
@@ -171,6 +177,7 @@ for p, prototype in pairs(data.raw.pipe) do
       tank.hidden = true
       tank.hidden_in_factoriopedia = true
       if tank.circuit_connector then
+        ---@diagnostic disable-next-line: assign-type-mismatch
         tank.circuit_connector = {}
         for i, bitmask in pairs(metadata.bitmasks) do
           tank.circuit_connector[i] = prototype.circuit_connector[bitmask + 1]
@@ -184,8 +191,8 @@ for p, prototype in pairs(data.raw.pipe) do
       end
       prototypes[#prototypes+1] = tank
       base_pipe[tank.name] = p
-      variations[p][suffix] = tank.name
-      bitmasks[tank.name] = suffix
+      tank_variations[p][suffix] = tank.name
+      tank_bitmasks[tank.name] = suffix
     end
     prototype.fast_replaceable_group = nil
     prototype.next_upgrade = nil
@@ -195,17 +202,6 @@ for p, prototype in pairs(data.raw.pipe) do
       linked_connection_id = 1
     }}
     prototype.collision_mask = {layers = {out_of_map = true}, colliding_with_tiles_only = true}
-    prototype.pictures.straight_vertical_single = {layers = {
-      {
-        filename = "__parallel-piping__/graphics/pipe-ball.png",
-        size = 64,
-        tint = prototype.pictures.straight_vertical_single.layers and prototype.pictures.straight_vertical_single.layers[1].tint or prototype.pictures.straight_vertical_single.tint
-      },
-      {
-        filename = "__parallel-piping__/graphics/pipe-ball-shadow.png",
-        size = 94
-      }
-    }}
   end
 end
 
@@ -218,7 +214,9 @@ data:extend{
     data = {
       base_pipe = base_pipe,
       variations = variations,
-      bitmasks = bitmasks
+      bitmasks = bitmasks,
+      tank_variations = tank_variations,
+      tank_bitmasks = tank_bitmasks
     }
   },
   {
