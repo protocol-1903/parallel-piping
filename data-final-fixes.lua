@@ -60,6 +60,7 @@ for p, prototype in pairs(data.raw.pipe) do
   else
     base_pipe[p] = p
     variations[p] = {}
+    tank_variations[p] = {}
     -- sort pipe connections to north, south, east, west
     local pipe_connections = table.deepcopy(prototype.fluid_box.pipe_connections)
     for _, connection in pairs(pipe_connections) do

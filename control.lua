@@ -221,7 +221,7 @@ local function on_built(event)
       local dist = (math.ceil(perel.get_side_length(this_prototype)) + math.ceil(perel.get_side_length(prev_prototype))) / 2
 
       -- distance based checks 
-      if dx ~= dy and math.max(dx, dy) == dist then goto continue end
+      if dx ~= dy and math.max(dx, dy) > dist then goto continue end
       -- possible to connect, check if possible
 
       if can_place then
@@ -259,7 +259,7 @@ local function on_built(event)
           for i, fluidbox in pairs(perel.get_possible_fluidbox_neighbours_by_fluidbox_and_connection(existing_entity)) do
             for j, connection in pairs(fluidbox) do
               for _, neighbour in pairs(connection) do
-                if neighbour ~= prev then goto skip2 end
+                if neighbour == prev then goto skip2 end
                 
                 -- check fluid compatibility
                 local existing_fluid = perel.get_fluid(existing_entity, i)
@@ -313,6 +313,16 @@ local function on_built(event)
 
   ::update:: -- actually update the relevant entities
 
+  if not can_place and new_var > 0 then
+    local new_name = variations[this_base][new_var]
+    can_place = surface.can_fast_replace{
+      name = this.name == "entity-ghost" and "entity-ghost" or new_name,
+      ghost_name = this.name == "entity-ghost" and new_name or nil,
+      position = this.position,
+      force = this.force
+    }
+  end
+
   if can_place then
     -- able to place, update variation
 
@@ -323,6 +333,17 @@ local function on_built(event)
     -- end
 
     local new_name = variations[this_base][new_var]
+    local can_fast_replace = surface.can_fast_replace{
+      name = this.name == "entity-ghost" and "entity-ghost" or new_name,
+      ghost_name = this.name == "entity-ghost" and new_name or nil,
+      position = this.position,
+      quality = this.quality,
+      force = this.force,
+      create_build_effect_smoke = false,
+      raise_built = true,
+      fast_replace = true,
+      spill = false
+    }
     local new_entity = surface.create_entity{
       name = this.name == "entity-ghost" and "entity-ghost" or new_name,
       ghost_name = this.name == "entity-ghost" and new_name or nil,
@@ -334,6 +355,8 @@ local function on_built(event)
       fast_replace = true,
       spill = false
     }
+
+    if this then this.destroy() end
 
     if health then new_entity.health = health end
     -- if fluid then new_entity.set_fluid(1, fluid) end
@@ -391,18 +414,32 @@ local function on_built(event)
     --   fluid.amount = fluid.amount + (prev_fluid and prev_fluid.amount or 0)
     -- end
 
+    
     local new_name = variations[prev_base][new_prev_var]
-    local new_entity = surface.create_entity{
-      name = this.name == "entity-ghost" and "entity-ghost" or new_name,
-      ghost_name = this.name == "entity-ghost" and new_name or nil,
-      position = this.position,
-      quality = this.quality,
-      force = this.force,
+    local can_fast_replace = prev.surface.can_fast_replace{
+       name = prev.name == "entity-ghost" and "entity-ghost" or new_name,
+      ghost_name = prev.name == "entity-ghost" and new_name or nil,
+      position = prev.position,
+      quality = prev.quality,
+      force = prev.force,
       create_build_effect_smoke = false,
       raise_built = true,
       fast_replace = true,
       spill = false
     }
+    local new_entity = surface.create_entity{
+      name = prev.name == "entity-ghost" and "entity-ghost" or new_name,
+      ghost_name = prev.name == "entity-ghost" and new_name or nil,
+      position = prev.position,
+      quality = prev.quality,
+      force = prev.force,
+      create_build_effect_smoke = false,
+      raise_built = true,
+      fast_replace = true,
+      spill = false
+    }
+
+    if prev then prev.destroy() end
 
     if health then new_entity.health = health end
     -- if fluid then new_entity.set_fluid(1, fluid) end
