@@ -435,20 +435,27 @@ script.on_event(defines.events.on_pre_build, function(event)
   ---@type LuaEntity?
   local prev = storage.previous[event.player_index]
   local build_data = {tick = game.tick}
+
   storage.pre_built_data[event.player_index] = build_data
+
   local player = game.get_player(event.player_index)
   local place_result = player.cursor_ghost and player.cursor_ghost.name.place_result or
     player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.prototype.place_result or nil
+
   if not place_result or place_result.type ~= "pipe" then return end
+
   local position = event.position
   local mask = prototypes.entity[variations[place_result.name][0]].collision_mask.layers.object and "object" or "tomwub-underground"
+
   local entity = player.surface.find_entities_filtered{
     type = "pipe",
     position = position,
     force = player.force,
     collision_mask = mask
   }[1]
+
   local ghost
+
   for _, e in pairs(player.surface.find_entities_filtered{
     type = "entity-ghost",
     ghost_type = "pipe",
@@ -460,13 +467,20 @@ script.on_event(defines.events.on_pre_build, function(event)
       break
     end
   end
+
   if entity or ghost then
+
     build_data.entity_name = entity and entity.name or ghost.ghost_name
+
     local this_fluid = entity and perel.get_fluid(entity)
+
     if this_fluid and prev and prev.valid and prev.name ~= "entity-ghost" then
+
       local prev_fluid = perel.get_fluid(prev)
+
       -- only check validity if we're attempting to mix fluids
       if this_fluid and prev_fluid and this_fluid.name ~= prev_fluid.name then
+
         local dx, dy = math.abs(entity.position.x - prev.position.x), math.abs(entity.position.y - prev.position.y)
         local dist = (
           ---@diagnostic disable-next-line: param-type-mismatch
@@ -474,31 +488,42 @@ script.on_event(defines.events.on_pre_build, function(event)
           ---@diagnostic disable-next-line: param-type-mismatch
           math.ceil(perel.get_side_length(prev.name == "entity-ghost" and prev.ghost_prototype or prev.prototype))
         ) / 2
+
         if dx ~= dy and math.max(dx, dy) == dist then
           -- entities will be connected, so prevent this
+
           player.create_local_flying_text{
             text = {"action-leads-to-fluid-mixing"},
             create_at_cursor = true
           } -- notify
+
           entity.surface.create_entity{
             name = "parallel-piping-blockage",
             position = entity.position
           } -- block placement
+
           return
+
         end
       end
     end
+
     if entity and event.build_mode == defines.build_mode.normal then
       -- no mixing will happen, update fluid count
+
       build_data.fluid = this_fluid
       build_data.health = entity.health
+
       entity.destroy()
+
     end
   end
   if entity and (event.build_mode ~= defines.build_mode.normal or player.controller_type == defines.controllers.remote) then
+
     -- mimic normal build event
     build_data.fluid = perel.get_fluid(entity)
     build_data.health = entity.health
+
     ---@diagnostic disable-next-line: inject-field
     event.entity = entity.surface.create_entity{
       name = base_pipe[entity.name],
@@ -507,9 +532,12 @@ script.on_event(defines.events.on_pre_build, function(event)
       force = entity.force,
       create_build_effect_smoke = false
     }
+
     entity.destroy();
+
     ---@diagnostic disable-next-line: param-type-mismatch
     on_built(event)
+
   end
 end)
 
