@@ -137,16 +137,17 @@ local function on_built(event)
   local this_prototype = this.name == "entity-ghost" and this.ghost_prototype or this.prototype ---@cast this_prototype LuaEntityPrototype
   local this_name = this_prototype.name
   local this_base = base_pipe[this_name]
+  local this_mask = bitmasks[this_name]
 
   local surface = this.surface
-  if this_base then -- already a custom pipe variation
+  if this_mask then -- already a custom pipe variation
 
     -- just placed a blueprint, convert to normal
     if this.type == "entity-ghost" and this.ghost_type == "storage-tank" or this.type == "storage-tank" then
       -- placeholder variation, convert
       ---@diagnostic disable-next-line: undefined-field
-      local mask = tank_to_pipe[bitmasks[this_name]][this.direction]
-      local new_name = variations[base_pipe[this_name]][mask]
+      local mask = tank_to_pipe[this_mask][this.direction]
+      local new_name = variations[this_base][mask]
       local new_entity = surface.create_entity{
         name = this.name == "entity-ghost" and "entity-ghost" or new_name,
         ghost_name = this.name == "entity-ghost" and new_name or nil,
@@ -162,9 +163,11 @@ local function on_built(event)
       end
       return
     end
+
+    -- already a variation, do no more work
+    return
   end
 
-  if bitmasks[this_name] then return end -- ignore most logic if this is already a variation
   if not player then
     -- no player agency means make as many connections as possible (some mod or something created this)
     -- TODO fill in
@@ -174,7 +177,7 @@ local function on_built(event)
   local new_var = existing_name and bitmasks[existing_name] or 0
 
   -- check if this entity can exist here, otherwise the player might be making a connection
-  local can_place = this_base and surface.can_place_entity{
+  local can_place = existing_name and true or this_base and surface.can_place_entity{
     name = variations[this_base][0],
     position = this.position,
     force = this.force,
@@ -221,7 +224,7 @@ local function on_built(event)
       local dist = (math.ceil(perel.get_side_length(this_prototype)) + math.ceil(perel.get_side_length(prev_prototype))) / 2
 
       -- distance based checks 
-      if dx ~= dy and math.max(dx, dy) > dist then goto continue end
+      if math.max(dx, dy) > dist then goto continue end
       -- possible to connect, check if possible
 
       if can_place then
@@ -313,15 +316,15 @@ local function on_built(event)
 
   ::update:: -- actually update the relevant entities
 
-  if not can_place and new_var > 0 then
-    local new_name = variations[this_base][new_var]
-    can_place = surface.can_fast_replace{
-      name = this.name == "entity-ghost" and "entity-ghost" or new_name,
-      ghost_name = this.name == "entity-ghost" and new_name or nil,
-      position = this.position,
-      force = this.force
-    }
-  end
+  -- if not can_place and new_var > 0 then
+  --   local new_name = variations[this_base][new_var]
+  --   can_place = surface.can_fast_replace{
+  --     name = this.name == "entity-ghost" and "entity-ghost" or new_name,
+  --     ghost_name = this.name == "entity-ghost" and new_name or nil,
+  --     position = this.position,
+  --     force = this.force
+  --   }
+  -- end
 
   if can_place then
     -- able to place, update variation
@@ -333,17 +336,6 @@ local function on_built(event)
     -- end
 
     local new_name = variations[this_base][new_var]
-    local can_fast_replace = surface.can_fast_replace{
-      name = this.name == "entity-ghost" and "entity-ghost" or new_name,
-      ghost_name = this.name == "entity-ghost" and new_name or nil,
-      position = this.position,
-      quality = this.quality,
-      force = this.force,
-      create_build_effect_smoke = false,
-      raise_built = true,
-      fast_replace = true,
-      spill = false
-    }
     local new_entity = surface.create_entity{
       name = this.name == "entity-ghost" and "entity-ghost" or new_name,
       ghost_name = this.name == "entity-ghost" and new_name or nil,
@@ -351,9 +343,7 @@ local function on_built(event)
       quality = this.quality,
       force = this.force,
       create_build_effect_smoke = false,
-      raise_built = true,
-      fast_replace = true,
-      spill = false
+      raise_built = true
     }
 
     if this then this.destroy() end
@@ -416,17 +406,6 @@ local function on_built(event)
 
     
     local new_name = variations[prev_base][new_prev_var]
-    local can_fast_replace = prev.surface.can_fast_replace{
-       name = prev.name == "entity-ghost" and "entity-ghost" or new_name,
-      ghost_name = prev.name == "entity-ghost" and new_name or nil,
-      position = prev.position,
-      quality = prev.quality,
-      force = prev.force,
-      create_build_effect_smoke = false,
-      raise_built = true,
-      fast_replace = true,
-      spill = false
-    }
     local new_entity = surface.create_entity{
       name = prev.name == "entity-ghost" and "entity-ghost" or new_name,
       ghost_name = prev.name == "entity-ghost" and new_name or nil,
@@ -434,9 +413,7 @@ local function on_built(event)
       quality = prev.quality,
       force = prev.force,
       create_build_effect_smoke = false,
-      raise_built = true,
-      fast_replace = true,
-      spill = false
+      raise_built = true
     }
 
     if prev then prev.destroy() end
@@ -515,22 +492,20 @@ script.on_event(defines.events.on_pre_build, function(event)
       -- no mixing will happen, update fluid count
       build_data.fluid = this_fluid
       build_data.health = entity.health
-      entity.health = entity.max_health
+      entity.destroy()
     end
   end
   if entity and (event.build_mode ~= defines.build_mode.normal or player.controller_type == defines.controllers.remote) then
     -- mimic normal build event
     build_data.fluid = perel.get_fluid(entity)
     build_data.health = entity.health
-    entity.health = entity.max_health
     ---@diagnostic disable-next-line: inject-field
     event.entity = entity.surface.create_entity{
       name = base_pipe[entity.name],
       position = entity.position,
       quality = entity.quality,
       force = entity.force,
-      create_build_effect_smoke = false,
-      raise_built = true
+      create_build_effect_smoke = false
     }
     entity.destroy();
     ---@diagnostic disable-next-line: param-type-mismatch
