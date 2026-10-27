@@ -84,6 +84,50 @@ local pipe_to_tank = {
   {mask = "cross", direction = defines.direction.north},
 }
 
+---@param player LuaPlayer?
+---@param inventory LuaInventory?
+local function restore_to_inventory(player, inventory)
+  if not player or not inventory then return end
+  for _, item_stack in pairs(inventory.get_contents()) do
+    if player and player.cursor_stack and player.cursor_stack.valid_for_read and player.cursor_stack.name == item_stack.name then
+
+      local count = player.cursor_stack.count + item_stack.count --[[@as uint]]
+
+      if count > player.cursor_stack.prototype.stack_size then
+
+        player.cursor_stack.count = player.cursor_stack.prototype.stack_size
+        local overflow = count - player.cursor_stack.prototype.stack_size
+        player.get_main_inventory().insert{
+          name = item_stack.name,
+          count = overflow,
+          quality = item_stack.quality --[[@as string]]
+        }
+
+      else
+
+        player.cursor_stack.count = count
+
+      end
+
+    elseif player.is_cursor_empty() then
+
+      player.cursor_stack.set_stack{
+        name = item_stack.name,
+        quality = item_stack.quality --[[@as string]]
+      }
+
+    else
+
+      player.get_main_inventory().insert{
+        name = item_stack.name,
+        count = item_stack.count --[[@as uint]],
+        quality = item_stack.quality --[[@as string]]
+      }
+
+    end
+  end
+end
+
 -- transform "0" to 0 etc
 for index, set in pairs(variations) do
   local new_set = {}
@@ -110,7 +154,7 @@ for base, set in pairs(variations) do
 end
 
 ---@class ParallelPipingStorage
----@field pre_built_data {[PlayerIdentification]: {fluid: Fluid?, health: float?, entity_name: string?, tick: MapTick?}?}
+---@field pre_built_data {[PlayerIdentification]: {fluid: Fluid?, health: float?, entity_name: string?, tick: MapTick?, restore_item: boolean?}?}
 ---@field previous {[PlayerIdentification]: LuaEntity?}
 storage = {} --[[@as ParallelPipingStorage]]
 
@@ -346,7 +390,15 @@ local function on_built(event)
       raise_built = true
     }
 
-    if this then this.destroy() end
+    if this then
+
+      if pre_built_data.restore_item then
+        restore_to_inventory(player, event.consumed_items)
+      end
+
+      this.destroy()
+
+    end
 
     if health then new_entity.health = health end
     -- if fluid then new_entity.set_fluid(1, fluid) end
@@ -358,14 +410,11 @@ local function on_built(event)
     if this.name ~= "entity-ghost" then
       -- return to cursor/inventory
 
-      if player and player.cursor_stack and player.cursor_stack.valid_for_read then
-        player.cursor_stack.count = player.cursor_stack.count + 1
-      elseif player and event.consumed_items and player.cursor_stack and (player.is_cursor_empty() or player.cursor_ghost and player.cursor_ghost.name.name == event.consumed_items[1].name) then
-        -- just placed last item, put it back
-        player.cursor_stack.transfer_stack(event.consumed_items[1])
+      if pre_built_data.restore_item then
+        restore_to_inventory(player, event.consumed_items)
       end
     end
-    
+
     if player then
       -- update what the previous entity is
 
@@ -513,6 +562,8 @@ script.on_event(defines.events.on_pre_build, function(event)
 
       build_data.fluid = this_fluid
       build_data.health = entity.health
+
+      build_data.restore_item = true
 
       entity.destroy()
 
