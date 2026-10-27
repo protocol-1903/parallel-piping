@@ -267,12 +267,11 @@ local function on_built(event)
       local dx, dy = math.abs(this.position.x - prev.position.x), math.abs(this.position.y - prev.position.y)
       local dist = (math.ceil(perel.get_side_length(this_prototype)) + math.ceil(perel.get_side_length(prev_prototype))) / 2
 
-      -- distance based checks 
-      if can_place and math.max(dx, dy) > dist then goto continue end
-      -- possible to connect, check if possible
-
       if can_place then
         -- looking to see if the pipes can connect
+
+        -- distance based checks 
+        if math.max(dx, dy) > dist then goto continue end
 
         -- check fluid compatibility
         local existing_fluid = pre_built_data.fluid
