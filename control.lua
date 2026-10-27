@@ -425,17 +425,16 @@ local function on_built(event)
         local prototype = entity.type == "entity-ghost" and entity.ghost_prototype or entity.prototype
         if #prototype.fluidbox_prototypes ~= 0 then
           storage.previous[player.index] = entity
-          goto update_prev
+          goto destroy
         end
 
       end end
 
     end
 
+    ::destroy::
     this.destroy()
   end
-
-  ::update_prev::
 
   if prev_base and new_prev_var then
 
