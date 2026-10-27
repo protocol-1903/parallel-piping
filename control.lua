@@ -183,8 +183,6 @@ local function on_built(event)
   local this_base = base_pipe[this_name]
   local this_mask = bitmasks[this_name]
 
-  log(this_name)
-
   local surface = this.surface
   if this_mask then -- already a custom pipe variation
 
@@ -270,7 +268,7 @@ local function on_built(event)
       local dist = (math.ceil(perel.get_side_length(this_prototype)) + math.ceil(perel.get_side_length(prev_prototype))) / 2
 
       -- distance based checks 
-      if math.max(dx, dy) > dist then goto continue end
+      if can_place and math.max(dx, dy) > dist then goto continue end
       -- possible to connect, check if possible
 
       if can_place then
