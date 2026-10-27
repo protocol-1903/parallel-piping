@@ -183,6 +183,8 @@ local function on_built(event)
   local this_base = base_pipe[this_name]
   local this_mask = bitmasks[this_name]
 
+  log(this_name)
+
   local surface = this.surface
   if this_mask then -- already a custom pipe variation
 
@@ -359,16 +361,6 @@ local function on_built(event)
   end
 
   ::update:: -- actually update the relevant entities
-
-  -- if not can_place and new_var > 0 then
-  --   local new_name = variations[this_base][new_var]
-  --   can_place = surface.can_fast_replace{
-  --     name = this.name == "entity-ghost" and "entity-ghost" or new_name,
-  --     ghost_name = this.name == "entity-ghost" and new_name or nil,
-  --     position = this.position,
-  --     force = this.force
-  --   }
-  -- end
 
   if can_place then
     -- able to place, update variation
@@ -557,7 +549,7 @@ script.on_event(defines.events.on_pre_build, function(event)
       end
     end
 
-    if entity and event.build_mode == defines.build_mode.normal then
+    if entity and (event.build_mode == defines.build_mode.normal and player.controller_type ~= defines.controllers.remote) then
       -- no mixing will happen, update fluid count
 
       build_data.fluid = this_fluid
@@ -566,6 +558,10 @@ script.on_event(defines.events.on_pre_build, function(event)
       build_data.restore_item = true
 
       entity.destroy()
+
+    elseif ghost and (event.build_mode ~= defines.build_mode.normal or player.controller_type == defines.controllers.remote) then
+
+      ghost.destroy()
 
     end
   end
