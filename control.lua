@@ -233,7 +233,7 @@ local function on_built(event)
       position = this.position,
       force = this.force
     }) do
-      if ghost ~= this then
+      if ghost ~= this and not base_pipe[ghost.ghost_name] then
         for layer in pairs(prototypes.entity[variations[this_base][0]].collision_mask.layers) do
           if ghost.ghost_prototype.collision_mask.layers[layer] then
             can_place = false
