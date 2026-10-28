@@ -10,7 +10,9 @@ require "__perel__.util.scripts.fluids"
 
 local mod_data = assert(prototypes.mod_data["parallel-piping"], "ERROR: mod-data for parallel-piping not found!")
 local base_pipe = assert(mod_data.data.base_pipe, "ERROR: data.base_pipe for parallel-piping not found!")
+---@cast base_pipe {[EntityName]: BasePipe}
 local variations = assert(mod_data.data.variations, "ERROR: data.variations for parallel-piping not found!")
+---@cast variations {[BasePipe]: {[integer]: EntityName}}
 
 -- transform "0" to 0 etc
 for index, set in pairs(variations) do
@@ -25,7 +27,7 @@ for index, set in pairs(variations) do
   variations[index] = new_set
 end
 
----@type {entity: LuaEntity, marked: boolean, health: float}[]
+---@type {entity: LuaEntity, marked: boolean, health: float?}[]
 local entities = {}
 
 -- replace with pipes with all connections
@@ -42,8 +44,8 @@ for _, surface in pairs(game.surfaces) do
           quality = entity.quality,
           force = entity.force
         }
-        ---@diagnostic disable-next-line: missing-fields, assign-type-mismatch
         entities[#entities+1] = {
+          entity = entity,
           health = entity.health,
           marked = entity.to_be_deconstructed()
         }
