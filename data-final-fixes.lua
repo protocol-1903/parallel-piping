@@ -237,3 +237,9 @@ data:extend{
     }
   }
 }
+
+
+for _, sim in pairs(data.raw["utility-constants"]["default"].main_menu_simulations) do
+  sim.mods = sim.mods or {}
+  table.insert(sim.mods, "parallel-piping")
+end

@@ -7,6 +7,7 @@
 
 require "__perel__.util.scripts.general"
 require "__perel__.util.scripts.fluids"
+local init = require "scripts.init"
 
 local mod_data = assert(prototypes.mod_data["parallel-piping"], "ERROR: mod-data for parallel-piping not found!")
 
@@ -161,6 +162,9 @@ storage = {} --[[@as ParallelPipingStorage]]
 script.on_init(function()
   storage.pre_built_data = {}
   storage.previous = {}
+  if not storage.init_done then
+    init()
+  end
 end)
 
 script.on_configuration_changed(function()
